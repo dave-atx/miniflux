@@ -671,6 +671,7 @@ a.button {
     margin-bottom: 20px;
     padding: var(--item-padding);
     overflow: hidden;
+    max-height: 250px;
 }
 
 .item.current-item {
@@ -738,7 +739,12 @@ a.button {
 }
 
 .hide-read-items .item-status-read:not(.current-item) {
-    display: none;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    margin: 0;
+    transition: max-height 0.2s, padding-bottom 0.2s, padding-top 0.1s 0.1s, margin 0.2s, border-width 0.2s step-end;
 }
 
 /* Feeds list */
