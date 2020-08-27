@@ -1,6 +1,6 @@
 class DomHelper {
     static isVisible(element) {
-        return element.offsetParent !== null;
+        return element.offsetParent !== null && element.offsetHeight > 0;
     }
 
     static openNewTab(url) {
