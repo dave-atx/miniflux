@@ -3,7 +3,7 @@
 package static // import "miniflux.app/ui/static"
 
 var Javascripts = map[string]string{
-	"app": `(function(){'use strict';class DomHelper{static isVisible(element){return element.offsetParent!==null;}
+	"app": `(function(){'use strict';class DomHelper{static isVisible(element){return element.offsetParent!==null&&element.offsetHeight>0;}
 static openNewTab(url){let win=window.open("");win.opener=null;win.location=url;win.focus();}
 static scrollPageTo(element){let windowScrollPosition=window.pageYOffset;let windowHeight=document.documentElement.clientHeight;let viewportPosition=windowScrollPosition+windowHeight;let itemBottomPosition=element.offsetTop+element.offsetHeight;if(viewportPosition-itemBottomPosition<0||viewportPosition-element.offsetTop>windowHeight){window.scrollTo(0,element.offsetTop-10);}}
 static getVisibleElements(selector){let elements=document.querySelectorAll(selector);let result=[];for(let i=0;i<elements.length;i++){if(this.isVisible(elements[i])){result.push(elements[i]);}}
@@ -113,6 +113,6 @@ window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();let defer
 }
 
 var JavascriptsChecksums = map[string]string{
-	"app": "5864dcd8484f63af813bde20f3e4db46383e4627ce6f5ae3aa5d56c0572a11b7",
+	"app": "07a62eaeb8ead09d331b36124caef329ffbd32d475f9ce4879d70fdb4e85da23",
 	"sw":  "55fffa223919cc18572788fb9c62fccf92166c0eb5d3a1d6f91c31f24d020be9",
 }
