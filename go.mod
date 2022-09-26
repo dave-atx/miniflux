@@ -17,7 +17,7 @@ require (
 	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/tdewolff/minify/v2 v2.12.0
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
-	github.com/yuin/goldmark v1.4.13
+	github.com/yuin/goldmark v1.5.2
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
