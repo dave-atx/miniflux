@@ -1,15 +1,15 @@
 ARG GO_VERSION=1
 FROM golang:${GO_VERSION}-alpine as builder
 
-WORKDIR /usr/src/app
-COPY go.mod go.sum ./
-RUN go mod download && go mod verify
-COPY . .
-RUN go build -v -o /run-app .
+RUN apk add --no-cache build-base git make
+ADD . /go/src/app
+WORKDIR /go/src/app
+RUN make miniflux
 
 
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates tzdata
-COPY --from=builder /run-app /usr/local/bin/
-CMD ["run-app"]
+COPY --from=builder /go/src/app/miniflux /usr/bin/miniflux
+USER 65534
+CMD ["/usr/bin/miniflux"]
