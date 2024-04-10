@@ -3,7 +3,7 @@ DOCKER_IMAGE := miniflux/miniflux
 VERSION      := $(shell git describe --tags --abbrev=0 2>/dev/null)
 COMMIT       := $(shell git rev-parse --short HEAD 2>/dev/null)
 BUILD_DATE   := `date +%FT%T%z`
-LD_FLAGS     := "-s -w -X 'miniflux.app/v2/internal/version.Version=$(VERSION)' -X 'miniflux.app/v2/internal/version.Commit=$(COMMIT)' -X 'miniflux.app/v2/internal/version.BuildDate=$(BUILD_DATE)'"
+LD_FLAGS     := "-linkmode=external -extldflags '--static-pie' -s -w -X 'miniflux.app/v2/internal/version.Version=$(VERSION)' -X 'miniflux.app/v2/internal/version.Commit=$(COMMIT)' -X 'miniflux.app/v2/internal/version.BuildDate=$(BUILD_DATE)'"
 PKG_LIST     := $(shell go list ./... | grep -v /vendor/)
 DB_URL       := postgres://postgres:postgres@localhost/miniflux_test?sslmode=disable
 DEB_IMG_ARCH := amd64
@@ -44,7 +44,7 @@ export PGPASSWORD := postgres
 	debian-packages
 
 miniflux:
-	@ go build -buildmode=pie -ldflags=$(LD_FLAGS) -o $(APP) main.go
+	@ go build -buildmode=pie -tags netgo,osusergo -ldflags=$(LD_FLAGS) -o $(APP) main.go
 
 miniflux-no-pie:
 	@ go build -ldflags=$(LD_FLAGS) -o $(APP) main.go
