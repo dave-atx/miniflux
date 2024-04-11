@@ -23,6 +23,8 @@ import (
 	"miniflux.app/v2/internal/storage"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/tdewolff/minify/v2"
+	"github.com/tdewolff/minify/v2/html"
 )
 
 var (
@@ -35,6 +37,9 @@ var (
 // ProcessFeedEntries downloads original web page for entries and apply filters.
 func ProcessFeedEntries(store *storage.Storage, feed *model.Feed, user *model.User, forceRefresh bool) {
 	var filteredEntries model.Entries
+
+	minifier := minify.New()
+	minifier.AddFunc("text/html", html.Minify)
 
 	// Process older entries first
 	for i := len(feed.Entries) - 1; i >= 0; i-- {
@@ -102,7 +107,11 @@ func ProcessFeedEntries(store *storage.Storage, feed *model.Feed, user *model.Us
 				)
 			} else if content != "" {
 				// We replace the entry content only if the scraper doesn't return any error.
-				entry.Content = content
+				if minifiedHTML, err := minifier.String("text/html", content); err == nil {
+					entry.Content = minifiedHTML
+				} else {
+					entry.Content = content
+				}
 			}
 		}
 
@@ -180,6 +189,9 @@ func isAllowedEntry(feed *model.Feed, entry *model.Entry) bool {
 
 // ProcessEntryWebPage downloads the entry web page and apply rewrite rules.
 func ProcessEntryWebPage(feed *model.Feed, entry *model.Entry, user *model.User) error {
+	minifier := minify.New()
+	minifier.AddFunc("text/html", html.Minify)
+
 	startTime := time.Now()
 	websiteURL := getUrlFromEntry(feed, entry)
 
@@ -211,7 +223,11 @@ func ProcessEntryWebPage(feed *model.Feed, entry *model.Entry, user *model.User)
 	}
 
 	if content != "" {
-		entry.Content = content
+		if minifiedHTML, err := minifier.String("text/html", content); err == nil {
+			entry.Content = minifiedHTML
+		} else {
+			entry.Content = content
+		}
 		if user.ShowReadingTime {
 			entry.ReadingTime = readingtime.EstimateReadingTime(entry.Content, user.DefaultReadingSpeed, user.CJKReadingSpeed)
 		}
@@ -251,6 +267,11 @@ func getUrlFromEntry(feed *model.Feed, entry *model.Entry) string {
 }
 
 func updateEntryReadingTime(store *storage.Storage, feed *model.Feed, entry *model.Entry, entryIsNew bool, user *model.User) {
+	if !user.ShowReadingTime {
+		slog.Debug("Skip reading time estimation for this user", slog.Int64("user_id", user.ID))
+		return
+	}
+
 	if shouldFetchYouTubeWatchTime(entry) {
 		if entryIsNew {
 			watchTime, err := fetchYouTubeWatchTime(entry.URL)
@@ -266,7 +287,7 @@ func updateEntryReadingTime(store *storage.Storage, feed *model.Feed, entry *mod
 			}
 			entry.ReadingTime = watchTime
 		} else {
-			entry.ReadingTime = store.GetReadTime(entry, feed)
+			entry.ReadingTime = store.GetReadTime(feed.ID, entry.Hash)
 		}
 	}
 
@@ -285,14 +306,13 @@ func updateEntryReadingTime(store *storage.Storage, feed *model.Feed, entry *mod
 			}
 			entry.ReadingTime = watchTime
 		} else {
-			entry.ReadingTime = store.GetReadTime(entry, feed)
+			entry.ReadingTime = store.GetReadTime(feed.ID, entry.Hash)
 		}
 	}
+
 	// Handle YT error case and non-YT entries.
 	if entry.ReadingTime == 0 {
-		if user.ShowReadingTime {
-			entry.ReadingTime = readingtime.EstimateReadingTime(entry.Content, user.DefaultReadingSpeed, user.CJKReadingSpeed)
-		}
+		entry.ReadingTime = readingtime.EstimateReadingTime(entry.Content, user.DefaultReadingSpeed, user.CJKReadingSpeed)
 	}
 }
 
