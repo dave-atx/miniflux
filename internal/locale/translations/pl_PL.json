@@ -229,6 +229,7 @@
     "page.settings.webauthn.last_seen_on": "Ostatnio użyte",
     "page.settings.webauthn.register": "Zarejestruj klucz dostępu",
     "page.settings.webauthn.register.error": "Nie można zarejestrować klucza dostępu",
+    "page.login.webauthn_login.help": "Wpisz swoją nazwę użytkownika, jeśli używasz klucza bezpieczeństwa. Nie jest to wymagane, jeśli używasz klucza dostępu (wykrywalnych danych uwierzytelniających).",
     "page.settings.webauthn.delete": [
         "Usuń %d klucz dostępu",
         "Usuń %d klucze dostępu",
@@ -365,8 +366,8 @@
     "form.feed.label.ntfy_default_priority": "Domyślny priorytet ntfy",
     "form.feed.label.ntfy_low_priority": "Niski priorytet ntfy",
     "form.feed.label.ntfy_min_priority": "Minimalny priorytet ntfy",
-    "form.integration.cubox_activate": "Save entries to Cubox",
-    "form.integration.cubox_api_link": "Cubox API link",
+    "form.integration.cubox_activate": "Zapisuj wpisy w Cubox",
+    "form.integration.cubox_api_link": "Łącze API Cubox",
     "form.feed.fieldset.general": "Ogólne",
     "form.feed.fieldset.rules": "Reguły",
     "form.feed.fieldset.network_settings": "Ustawienia sieci",
