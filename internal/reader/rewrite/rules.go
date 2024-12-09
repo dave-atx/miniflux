@@ -12,7 +12,6 @@ var predefinedRules = map[string]string{
 	"abstrusegoose.com":      "add_image_title",
 	"amazingsuperpowers.com": "add_image_title",
 	"blog.cloudflare.com":    `add_image_title,remove("figure.kg-image-card figure.kg-image + img")`,
-	"blog.laravel.com":       "parse_markdown",
 	"cowbirdsinlove.com":     "add_image_title",
 	"drawingboardcomic.com":  "add_image_title",
 	"exocomics.com":          "add_image_title",
@@ -36,7 +35,6 @@ var predefinedRules = map[string]string{
 	"treelobsters.com":       "add_image_title",
 	"webtoons.com":           `add_dynamic_image,replace("webtoon"|"swebtoon")`,
 	"www.qwantz.com":         "add_image_title,add_mailto_subject",
-	"www.recalbox.com":       "parse_markdown",
 	"xkcd.com":               "add_image_title",
 	"youtube.com":            "add_youtube_video",
 }

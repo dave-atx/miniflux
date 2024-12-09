@@ -4,7 +4,6 @@
 package sanitizer // import "miniflux.app/v2/internal/reader/sanitizer"
 
 import (
-	"fmt"
 	"io"
 	"regexp"
 	"slices"
@@ -19,7 +18,7 @@ import (
 )
 
 var (
-	youtubeEmbedRegex = regexp.MustCompile(`//(?:www\.)?youtube\.com/embed/(.+)$`)
+	youtubeEmbedRegex = regexp.MustCompile(`^(?:https?:)?//(?:www\.)?youtube\.com/embed/(.+)$`)
 	tagAllowList      = map[string][]string{
 		"a":          {"href", "title", "id"},
 		"abbr":       {"title"},
@@ -98,6 +97,7 @@ func Sanitize(baseURL, input string) string {
 		}
 
 		token := tokenizer.Token()
+		tagName := token.DataAtom.String()
 		switch token.Type {
 		case html.TextToken:
 			if len(blockedStack) > 0 {
@@ -110,9 +110,8 @@ func Sanitize(baseURL, input string) string {
 				continue
 			}
 
-			buffer.WriteString(html.EscapeString(token.Data))
+			buffer.WriteString(token.String())
 		case html.StartTagToken:
-			tagName := token.DataAtom.String()
 			parentTag = tagName
 
 			if isPixelTracker(tagName, token.Attr) {
@@ -121,38 +120,42 @@ func Sanitize(baseURL, input string) string {
 
 			if isBlockedTag(tagName) || slices.ContainsFunc(token.Attr, func(attr html.Attribute) bool { return attr.Key == "hidden" }) {
 				blockedStack = append(blockedStack, tagName)
-			} else if len(blockedStack) == 0 && isValidTag(tagName) {
-				attrNames, htmlAttributes := sanitizeAttributes(baseURL, tagName, token.Attr)
+				continue
+			}
 
+			if len(blockedStack) == 0 && isValidTag(tagName) {
+				attrNames, htmlAttributes := sanitizeAttributes(baseURL, tagName, token.Attr)
 				if hasRequiredAttributes(tagName, attrNames) {
 					if len(attrNames) > 0 {
 						buffer.WriteString("<" + tagName + " " + htmlAttributes + ">")
 					} else {
-						buffer.WriteString("<" + tagName + ">")
+						buffer.WriteString(token.String())
 					}
 
 					tagStack = append(tagStack, tagName)
 				}
 			}
 		case html.EndTagToken:
-			tagName := token.DataAtom.String()
-			if len(blockedStack) > 0 && blockedStack[len(blockedStack)-1] == tagName {
-				blockedStack = blockedStack[:len(blockedStack)-1]
-			} else if len(blockedStack) == 0 && isValidTag(tagName) && slices.Contains(tagStack, tagName) {
-				buffer.WriteString("</" + tagName + ">")
+			if len(blockedStack) == 0 {
+				if isValidTag(tagName) && slices.Contains(tagStack, tagName) {
+					buffer.WriteString(token.String())
+				}
+			} else {
+				if blockedStack[len(blockedStack)-1] == tagName {
+					blockedStack = blockedStack[:len(blockedStack)-1]
+				}
 			}
 		case html.SelfClosingTagToken:
-			tagName := token.DataAtom.String()
 			if isPixelTracker(tagName, token.Attr) {
 				continue
 			}
-			if isValidTag(tagName) && len(blockedStack) == 0 {
+			if len(blockedStack) == 0 && isValidTag(tagName) {
 				attrNames, htmlAttributes := sanitizeAttributes(baseURL, tagName, token.Attr)
 				if hasRequiredAttributes(tagName, attrNames) {
 					if len(attrNames) > 0 {
 						buffer.WriteString("<" + tagName + " " + htmlAttributes + "/>")
 					} else {
-						buffer.WriteString("<" + tagName + "/>")
+						buffer.WriteString(token.String())
 					}
 				}
 			}
@@ -183,11 +186,7 @@ func sanitizeAttributes(baseURL, tagName string, attributes []html.Attribute) ([
 		}
 
 		if tagName == "img" && (attribute.Key == "width" || attribute.Key == "height") {
-			if !isPositiveInteger(value) {
-				continue
-			}
-
-			if isImageLargerThanLayout {
+			if isImageLargerThanLayout || !isPositiveInteger(value) {
 				continue
 			}
 		}
@@ -201,7 +200,7 @@ func sanitizeAttributes(baseURL, tagName string, attributes []html.Attribute) ([
 				value = rewriteIframeURL(attribute.Val)
 			case tagName == "img" && attribute.Key == "src" && isValidDataAttribute(attribute.Val):
 				value = attribute.Val
-			case isAnchor("a", attribute):
+			case tagName == "a" && attribute.Key == "href" && strings.HasPrefix(attribute.Val, "#"):
 				value = attribute.Val
 				isAnchorLink = true
 			default:
@@ -221,7 +220,7 @@ func sanitizeAttributes(baseURL, tagName string, attributes []html.Attribute) ([
 		}
 
 		attrNames = append(attrNames, attribute.Key)
-		htmlAttrs = append(htmlAttrs, fmt.Sprintf(`%s=%q`, attribute.Key, html.EscapeString(value)))
+		htmlAttrs = append(htmlAttrs, attribute.Key+`="`+html.EscapeString(value)+`"`)
 	}
 
 	if !isAnchorLink {
@@ -251,10 +250,8 @@ func getExtraAttributes(tagName string) ([]string, []string) {
 }
 
 func isValidTag(tagName string) bool {
-	if _, ok := tagAllowList[tagName]; ok {
-		return true
-	}
-	return false
+	_, ok := tagAllowList[tagName]
+	return ok
 }
 
 func isValidAttribute(tagName, attributeName string) bool {
@@ -294,24 +291,16 @@ func isPixelTracker(tagName string, attributes []html.Attribute) bool {
 }
 
 func hasRequiredAttributes(tagName string, attributes []string) bool {
-	elements := map[string][]string{
-		"a":      {"href"},
-		"iframe": {"src"},
-		"img":    {"src"},
-		"source": {"src", "srcset"},
+	switch tagName {
+	case "a":
+		return slices.Contains(attributes, "href")
+	case "iframe", "img":
+		return slices.Contains(attributes, "src")
+	case "source":
+		return slices.Contains(attributes, "src") || slices.Contains(attributes, "srcset")
+	default:
+		return true
 	}
-
-	if attrs, ok := elements[tagName]; ok {
-		for _, attribute := range attributes {
-			if slices.Contains(attrs, attribute) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	return true
 }
 
 // See https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml
@@ -369,7 +358,6 @@ func isBlockedResource(src string) bool {
 		"feedsportal.com",
 		"api.flattr.com",
 		"stats.wordpress.com",
-		"plus.google.com/share",
 		"twitter.com/share",
 		"feeds.feedburner.com",
 	}
@@ -401,7 +389,7 @@ func isValidIframeSource(baseURL, src string) bool {
 	}
 
 	// allow iframe from custom invidious instance
-	if config.Opts != nil && config.Opts.InvidiousInstance() == domain {
+	if config.Opts.InvidiousInstance() == domain {
 		return true
 	}
 
@@ -431,8 +419,7 @@ func sanitizeSrcsetAttr(baseURL, value string) string {
 	imageCandidates := ParseSrcSetAttribute(value)
 
 	for _, imageCandidate := range imageCandidates {
-		absoluteURL, err := urllib.AbsoluteURL(baseURL, imageCandidate.ImageURL)
-		if err == nil {
+		if absoluteURL, err := urllib.AbsoluteURL(baseURL, imageCandidate.ImageURL); err == nil {
 			imageCandidate.ImageURL = absoluteURL
 		}
 	}
@@ -457,10 +444,6 @@ func isValidDataAttribute(value string) bool {
 	})
 }
 
-func isAnchor(tagName string, attribute html.Attribute) bool {
-	return tagName == "a" && attribute.Key == "href" && strings.HasPrefix(attribute.Val, "#")
-}
-
 func isPositiveInteger(value string) bool {
 	if number, err := strconv.Atoi(value); err == nil {
 		return number > 0
@@ -468,16 +451,12 @@ func isPositiveInteger(value string) bool {
 	return false
 }
 
-func getAttributeValue(name string, attributes []html.Attribute) string {
+func getIntegerAttributeValue(name string, attributes []html.Attribute) int {
 	for _, attribute := range attributes {
 		if attribute.Key == name {
-			return attribute.Val
+			number, _ := strconv.Atoi(attribute.Val)
+			return number
 		}
 	}
-	return ""
-}
-
-func getIntegerAttributeValue(name string, attributes []html.Attribute) int {
-	number, _ := strconv.Atoi(getAttributeValue(name, attributes))
-	return number
+	return 0
 }
