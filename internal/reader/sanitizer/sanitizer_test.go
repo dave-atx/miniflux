@@ -5,7 +5,10 @@ package sanitizer // import "miniflux.app/v2/internal/reader/sanitizer"
 
 import (
 	"os"
+	"strings"
 	"testing"
+
+	"golang.org/x/net/html"
 
 	"miniflux.app/v2/internal/config"
 )
@@ -33,6 +36,28 @@ func BenchmarkSanitize(b *testing.B) {
 			Sanitize(v[0], v[1])
 		}
 	}
+}
+
+func FuzzSanitizer(f *testing.F) {
+	f.Fuzz(func(t *testing.T, orig string) {
+		tok := html.NewTokenizer(strings.NewReader(orig))
+		i := 0
+		for tok.Next() != html.ErrorToken {
+			i++
+		}
+
+		out := Sanitize("", orig)
+
+		tok = html.NewTokenizer(strings.NewReader(out))
+		j := 0
+		for tok.Next() != html.ErrorToken {
+			j++
+		}
+
+		if j > i {
+			t.Errorf("Got more html tokens in the sanitized html.")
+		}
+	})
 }
 
 func TestValidInput(t *testing.T) {
@@ -611,9 +636,9 @@ func TestReplaceYoutubeURLWithCustomURL(t *testing.T) {
 	}
 }
 
-func TestReplaceIframeURL(t *testing.T) {
+func TestReplaceIframeVimedoDNTURL(t *testing.T) {
 	input := `<iframe src="https://player.vimeo.com/video/123456?title=0&amp;byline=0"></iframe>`
-	expected := `<iframe src="https://player.vimeo.com/video/123456?title=0&amp;byline=0" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy"></iframe>`
+	expected := `<iframe src="https://player.vimeo.com/video/123456?title=0&amp;byline=0&amp;dnt=1" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy"></iframe>`
 	output := Sanitize("http://example.org/", input)
 
 	if expected != output {
@@ -656,6 +681,16 @@ func TestHiddenParagraph(t *testing.T) {
 	expected := `<p>Before paragraph.</p><p>After paragraph.</p>`
 	output := Sanitize("http://example.org/", input)
 
+	if expected != output {
+		t.Errorf(`Wrong output: "%s" != "%s"`, expected, output)
+	}
+}
+
+func TestAttributesAreStripped(t *testing.T) {
+	input := `<p style="color: red;">Some text.<hr style="color: blue"/>Test.</p>`
+	expected := `<p>Some text.<hr/>Test.</p>`
+
+	output := Sanitize("http://example.org/", input)
 	if expected != output {
 		t.Errorf(`Wrong output: "%s" != "%s"`, expected, output)
 	}
