@@ -1077,4 +1077,17 @@ var migrations = []func(tx *sql.Tx, driver string) error{
 		_, err = tx.Exec(`ALTER TABLE users ADD COLUMN always_open_external_links bool default 'f'`)
 		return err
 	},
+	func(tx *sql.Tx, _ string) (err error) {
+		sql := `
+			ALTER TABLE integrations ADD COLUMN karakeep_enabled bool default 'f';
+			ALTER TABLE integrations ADD COLUMN karakeep_api_key text default '';
+			ALTER TABLE integrations ADD COLUMN karakeep_url text default '';
+		`
+		_, err = tx.Exec(sql)
+		return
+	},
+	func(tx *sql.Tx, _ string) (err error) {
+		_, err = tx.Exec(`ALTER TABLE users ADD COLUMN open_external_links_in_new_tab bool default 't'`)
+		return err
+	},
 }
