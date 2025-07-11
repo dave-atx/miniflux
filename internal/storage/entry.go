@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
-	"strings"
 	"time"
 
 	"miniflux.app/v2/internal/crypto"
@@ -17,6 +15,8 @@ import (
 
 	"github.com/lib/pq"
 )
+
+const truncationLen = 500000
 
 // CountAllEntries returns the number of entries for each status in the database.
 func (s *Storage) CountAllEntries() map[string]int64 {
@@ -78,12 +78,20 @@ func (s *Storage) UpdateEntryTitleAndContent(entry *model.Entry) error {
 			title=$1,
 			content=$2,
 			reading_time=$3,
-			document_vectors = setweight(to_tsvector(left(coalesce($1, ''), 500000)), 'A') || setweight(to_tsvector(left(coalesce($2, ''), 500000)), 'B')
+			document_vectors = setweight(to_tsvector($4), 'A') || setweight(to_tsvector($5), 'B')
 		WHERE
-			id=$4 AND user_id=$5
+			id=$6 AND user_id=$7
 	`
 
-	if _, err := s.db.Exec(query, entry.Title, entry.Content, entry.ReadingTime, entry.ID, entry.UserID); err != nil {
+	if _, err := s.db.Exec(
+		query,
+		entry.Title,
+		entry.Content,
+		entry.ReadingTime,
+		truncateString(entry.Title),
+		truncateString(entry.Content),
+		entry.ID,
+		entry.UserID); err != nil {
 		return fmt.Errorf(`store: unable to update entry #%d: %v`, entry.ID, err)
 	}
 
@@ -122,8 +130,8 @@ func (s *Storage) createEntry(tx *sql.Tx, entry *model.Entry) error {
 				$9,
 				$10,
 				now(),
-				setweight(to_tsvector(left(coalesce($1, ''), 500000)), 'A') || setweight(to_tsvector(left(coalesce($6, ''), 500000)), 'B'),
-				$11
+				setweight(to_tsvector($11), 'A') || setweight(to_tsvector($12), 'B'),
+				$13
 			)
 		RETURNING
 			id, status, created_at, changed_at
@@ -140,7 +148,9 @@ func (s *Storage) createEntry(tx *sql.Tx, entry *model.Entry) error {
 		entry.UserID,
 		entry.FeedID,
 		entry.ReadingTime,
-		pq.Array(removeEmpty(removeDuplicates(entry.Tags))),
+		truncateString(entry.Title),
+		truncateString(entry.Content),
+		pq.Array(entry.Tags),
 	).Scan(
 		&entry.ID,
 		&entry.Status,
@@ -178,10 +188,10 @@ func (s *Storage) updateEntry(tx *sql.Tx, entry *model.Entry) error {
 			content=$4,
 			author=$5,
 			reading_time=$6,
-			document_vectors = setweight(to_tsvector(left(coalesce($1, ''), 500000)), 'A') || setweight(to_tsvector(left(coalesce($4, ''), 500000)), 'B'),
-			tags=$10
+			document_vectors = setweight(to_tsvector($7), 'A') || setweight(to_tsvector($8), 'B'),
+			tags=$12
 		WHERE
-			user_id=$7 AND feed_id=$8 AND hash=$9
+			user_id=$9 AND feed_id=$10 AND hash=$11
 		RETURNING
 			id
 	`
@@ -193,10 +203,12 @@ func (s *Storage) updateEntry(tx *sql.Tx, entry *model.Entry) error {
 		entry.Content,
 		entry.Author,
 		entry.ReadingTime,
+		truncateString(entry.Title),
+		truncateString(entry.Content),
 		entry.UserID,
 		entry.FeedID,
 		entry.Hash,
-		pq.Array(removeEmpty(removeDuplicates(entry.Tags))),
+		pq.Array(entry.Tags),
 	).Scan(&entry.ID)
 
 	if err != nil {
@@ -269,7 +281,7 @@ func (s *Storage) cleanupEntries(feedID int64, entryHashes []string) error {
 
 // RefreshFeedEntries updates feed entries while refreshing a feed.
 func (s *Storage) RefreshFeedEntries(userID, feedID int64, entries model.Entries, updateExistingEntries bool) (newEntries model.Entries, err error) {
-	var entryHashes []string
+	entryHashes := make([]string, 0, len(entries))
 
 	for _, entry := range entries {
 		entry.UserID = userID
@@ -628,17 +640,9 @@ func (s *Storage) UnshareEntry(userID int64, entryID int64) (err error) {
 	return
 }
 
-func removeDuplicates(l []string) []string {
-	slices.Sort(l)
-	return slices.Compact(l)
-}
-
-func removeEmpty(l []string) []string {
-	var finalSlice []string
-	for _, item := range l {
-		if strings.TrimSpace(item) != "" {
-			finalSlice = append(finalSlice, item)
-		}
+func truncateString(s string) string {
+	if len(s) > truncationLen {
+		return s[:truncationLen]
 	}
-	return finalSlice
+	return s
 }

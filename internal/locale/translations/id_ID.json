@@ -27,7 +27,6 @@
     "alert.no_tag_entry": "Tidak ada entri yang cocok dengan tag ini.",
     "alert.no_unread_entry": "Belum ada artikel yang dibaca.",
     "alert.no_user": "Anda adalah satu-satunya pengguna.",
-    "alert.pocket_linked": "Akun Pocket Anda sudah terhubung!",
     "alert.prefs_saved": "Preferensi disimpan!",
     "alert.too_many_feeds_refresh": [
         "Anda terlalu banyak menyegarkan umpan. Mohon tunggu %d menit sebelum mencoba lagi."
@@ -130,8 +129,6 @@
     "error.network_operation": "Miniflux tidak dapat menjangkau situs ini dikarenakan galat jaringan: %v.",
     "error.network_timeout": "Situs ini terlalu lambat dan permintaan ke situs terlalu lama: %v",
     "error.password_min_length": "Kata sandi harus memiliki setidaknya 6 karakter.",
-    "error.pocket_access_token": "Tidak bisa mendapatkan token akses dari Pocket!",
-    "error.pocket_request_token": "Tidak bisa mendapatkan token permintaan dari Pocket!",
     "error.proxy_url_not_empty": "URL proksi tidak boleh kosong.",
     "error.settings_block_rule_fieldname_invalid": "Aturan blokir tidak valid: aturan #%d tidak mempunyai nama bidang yang valid (Opsi: %s)",
     "error.settings_block_rule_invalid_regex": "Aturan blokir tidak valid: aturan pola #%d bukan ekspresi regular (regex) yang valid",
@@ -166,10 +163,11 @@
     "form.feed.fieldset.general": "Umum",
     "form.feed.fieldset.integration": "Pengaturan Pihak Ketiga",
     "form.feed.fieldset.network_settings": "Pengaturan Jaringan",
-    "form.feed.fieldset.rules": "Rules",
+    "form.feed.fieldset.rules": "Aturan",
     "form.feed.label.allow_self_signed_certificates": "Perbolehkan sertifikat web tidak valid atau sertifikasi sendiri",
     "form.feed.label.apprise_service_urls": "Daftar yang dipisahkan koma untuk URL layanan Apprise",
-    "form.feed.label.blocklist_rules": "Aturan Blokir",
+    "form.feed.label.block_filter_entry_rules": "Aturan Pemblokiran Entri",
+    "form.feed.label.blocklist_rules": "Filter Pemblokiran Berbasis Regex",
     "form.feed.label.category": "Kategori",
     "form.feed.label.cookie": "Atur Kuki",
     "form.feed.label.crawler": "Ambil konten asli",
@@ -182,8 +180,9 @@
     "form.feed.label.fetch_via_proxy": "Gunakan proksi yang dikonfigurasi di tingkat aplikasi",
     "form.feed.label.hide_globally": "Sembunyikan entri di daftar belum dibaca global",
     "form.feed.label.ignore_http_cache": "Abaikan Tembolok HTTP",
-    "form.feed.label.keeplist_rules": "Aturan Simpan",
-    "form.feed.label.no_media_player": "No media player (audio/video)",
+    "form.feed.label.keep_filter_entry_rules": "Aturan Izin Entri",
+    "form.feed.label.keeplist_rules": "Filter Simpan Berbasis Regex",
+    "form.feed.label.no_media_player": "Tidak ada pemutar media (audio/video)",
     "form.feed.label.ntfy_activate": "Kirim artikel ke ntfy",
     "form.feed.label.ntfy_default_priority": "Prioritas baku Ntfy",
     "form.feed.label.ntfy_high_priority": "Priroritas tinggi Ntfy",
@@ -200,7 +199,7 @@
     "form.feed.label.pushover_max_priority": "Prioritas maksimal Pushover",
     "form.feed.label.pushover_min_priority": "Prioritas minimal Pushover",
     "form.feed.label.pushover_priority": "Prioritas pesan Pushover",
-    "form.feed.label.rewrite_rules": "Aturan Tulis Ulang",
+    "form.feed.label.rewrite_rules": "Aturan Penulisan Ulang Konten",
     "form.feed.label.scraper_rules": "Aturan Pengambil Data",
     "form.feed.label.site_url": "URL Situs",
     "form.feed.label.title": "Judul",
@@ -277,10 +276,6 @@
     "form.integration.pinboard_bookmark": "Tandai markah sebagai belum dibaca",
     "form.integration.pinboard_tags": "Tanda di Pinboard",
     "form.integration.pinboard_token": "Token API Pinboard",
-    "form.integration.pocket_access_token": "Token Akses Pocket",
-    "form.integration.pocket_activate": "Simpan artikel ke Pocket",
-    "form.integration.pocket_connect_link": "Hubungkan akun Pocket Anda",
-    "form.integration.pocket_consumer_key": "Kunci Pelanggan Pocket",
     "form.integration.pushover_activate": "Kirim artikel ke Pushover",
     "form.integration.pushover_device": "Perangkat Pushover (opsional)",
     "form.integration.pushover_prefix": "Prefiks URL Pushover (opsional)",
@@ -434,9 +429,6 @@
     "page.api_keys.table.last_used_at": "Terakhir Digunakan",
     "page.api_keys.table.token": "Token",
     "page.api_keys.title": "Kunci API",
-    "page.categories_count": [
-        "%d kategori"
-    ],
     "page.categories.entries": "Artikel",
     "page.categories.feed_count": [
         "Ada %d umpan."
@@ -444,6 +436,9 @@
     "page.categories.feeds": "Langganan",
     "page.categories.no_feed": "Tidak ada umpan.",
     "page.categories.title": "Kategori",
+    "page.categories_count": [
+        "%d kategori"
+    ],
     "page.category_label": "Category: %s",
     "page.edit_category.title": "Sunting Kategori: %s",
     "page.edit_feed.etag_header": "Tajuk ETag:",
@@ -546,21 +541,21 @@
     "page.settings.webauthn.passkeys": "Passkey",
     "page.settings.webauthn.register": "Daftar passkey",
     "page.settings.webauthn.register.error": "Tidak dapat mendaftarkan passkey",
+    "page.shared_entries.title": "Entri yang Dibagikan",
     "page.shared_entries_count": [
         "%d entri yang dibagikan"
     ],
-    "page.shared_entries.title": "Entri yang Dibagikan",
+    "page.starred.title": "Markah",
     "page.starred_entry_count": [
         "%d entri dimarkahi"
     ],
-    "page.starred.title": "Markah",
     "page.total_entry_count": [
         "%d entri secara total"
     ],
+    "page.unread.title": "Belum Dibaca",
     "page.unread_entry_count": [
         "%d entri belum dibaca"
     ],
-    "page.unread.title": "Belum Dibaca",
     "page.users.actions": "Tindakan",
     "page.users.admin.no": "Tidak",
     "page.users.admin.yes": "Ya",

@@ -27,7 +27,6 @@
     "alert.no_tag_entry": "Bu etiketle eşleşen hiçbir giriş yok.",
     "alert.no_unread_entry": "Okunmamış makele yok",
     "alert.no_user": "Tek kullanıcı sizsiniz",
-    "alert.pocket_linked": "Pocket hesabınız artık bağlandı.",
     "alert.prefs_saved": "Tercihler kaydedildi!",
     "alert.too_many_feeds_refresh": [
         "Çok fazla besleme yenilemesi başlattınız. Tekrar denemeden önce lütfen %d dakika bekleyin.",
@@ -133,8 +132,6 @@
     "error.network_operation": "Miniflux bir ağ hatası nedeniyle bu websitesine erişemiyor: %v.",
     "error.network_timeout": "Bu websitesi çok yavaş ve istek zaman aşımına uğradı: %v",
     "error.password_min_length": "Parola en az 6 karakter içermeli.",
-    "error.pocket_access_token": "Pocket'tan access tokeni alınamıyor!",
-    "error.pocket_request_token": "Pocket'tan request tokeni alınamıyor!",
     "error.proxy_url_not_empty": "Proxy URL'si boş olamaz.",
     "error.settings_block_rule_fieldname_invalid": "Geçersiz Engelleme kuralı: #%d kuralında geçerli bir alan adı eksik (Seçenekler: %s)",
     "error.settings_block_rule_invalid_regex": "Geçersiz Engelleme kuralı: #%d kuralı modeli geçerli bir düzenli ifade değil",
@@ -172,7 +169,8 @@
     "form.feed.fieldset.rules": "Kurallar",
     "form.feed.label.allow_self_signed_certificates": "Kendinden imzalı veya geçersiz sertifikalara izin ver",
     "form.feed.label.apprise_service_urls": "Apprise hizmet URL'lerinin virgülle ayrılmış listesi",
-    "form.feed.label.blocklist_rules": "Engelleme Kuralları",
+    "form.feed.label.block_filter_entry_rules": "Giriş Engelleme Kuralları",
+    "form.feed.label.blocklist_rules": "Regex Tabanlı Engelleme Filtreleri",
     "form.feed.label.category": "Kategori",
     "form.feed.label.cookie": "Çerezleri Ayarla",
     "form.feed.label.crawler": "Orijinal içeriği çek",
@@ -185,7 +183,8 @@
     "form.feed.label.fetch_via_proxy": "Uygulama düzeyinde yapılandırılmış proxy'yi kullan",
     "form.feed.label.hide_globally": "Genel okunmamış listesindeki girişleri gizle",
     "form.feed.label.ignore_http_cache": "HTTP önbelleğini yoksay",
-    "form.feed.label.keeplist_rules": "Saklama Kuralları",
+    "form.feed.label.keep_filter_entry_rules": "Giriş İzin Kuralları",
+    "form.feed.label.keeplist_rules": "Regex Tabanlı Tutma Filtreleri",
     "form.feed.label.no_media_player": "Medya oynatıcı yok (ses/video)",
     "form.feed.label.ntfy_activate": "Makaleleri ntfy'ye gönder",
     "form.feed.label.ntfy_default_priority": "Ntfy varsayılan öncelik",
@@ -203,13 +202,13 @@
     "form.feed.label.pushover_max_priority": "Pushover maksimum öncelik",
     "form.feed.label.pushover_min_priority": "Pushover minimum öncelik",
     "form.feed.label.pushover_priority": "Pushover mesaj önceliği",
-    "form.feed.label.rewrite_rules": "Yeniden Yazma Kuralları",
+    "form.feed.label.rewrite_rules": "İçerik Yeniden Yazma Kuralları",
     "form.feed.label.scraper_rules": "Scrapper Kuralları",
     "form.feed.label.site_url": "Site URL'si",
     "form.feed.label.title": "Başlık",
     "form.feed.label.urlrewrite_rules": "URL Yeniden Yazma Kuralları",
     "form.feed.label.user_agent": "Varsayılan User Agent'i Geçersiz Kıl",
-    "form.feed.label.webhook_url": "Override webhook url",
+    "form.feed.label.webhook_url": "Webhook URL'sini geçersiz kıl",
     "form.import.label.file": "OPML dosyası",
     "form.import.label.url": "URL",
     "form.integration.apprise_activate": "Makaleleri Apprise'a gönder",
@@ -280,10 +279,6 @@
     "form.integration.pinboard_bookmark": "Yer imini okunmadı olarak işaretle",
     "form.integration.pinboard_tags": "Pinboard Etiketleri",
     "form.integration.pinboard_token": "Pinboard API Token",
-    "form.integration.pocket_access_token": "Pocket Access Token",
-    "form.integration.pocket_activate": "Makaleleri Pocket'a kaydet",
-    "form.integration.pocket_connect_link": "Pocket hesabını bağla",
-    "form.integration.pocket_consumer_key": "Pocket Consumer Anahtarı",
     "form.integration.pushover_activate": "Push entries to Pushover",
     "form.integration.pushover_device": "Pushover device (optional)",
     "form.integration.pushover_prefix": "Pushover URL prefix (optional)",
@@ -437,10 +432,6 @@
     "page.api_keys.table.last_used_at": "Son Kullanılma",
     "page.api_keys.table.token": "Token",
     "page.api_keys.title": "API Anahtarları",
-    "page.categories_count": [
-        "%d kategori",
-        "%d kategori"
-    ],
     "page.categories.entries": "Makaleler",
     "page.categories.feed_count": [
         "%d besleme var.",
@@ -449,6 +440,10 @@
     "page.categories.feeds": "Beslemeler",
     "page.categories.no_feed": "Besleme yok.",
     "page.categories.title": "Kategoriler",
+    "page.categories_count": [
+        "%d kategori",
+        "%d kategori"
+    ],
     "page.category_label": "Kategori: %s",
     "page.edit_category.title": "Kategoriyi Düzenle: %s",
     "page.edit_feed.etag_header": "ETag başlığı:",
@@ -554,25 +549,25 @@
     "page.settings.webauthn.passkeys": "Passkeyler",
     "page.settings.webauthn.register": "Passkey'i kaydet",
     "page.settings.webauthn.register.error": "Passkey kaydedilemiyor",
+    "page.shared_entries.title": "Paylaşılan makaleler",
     "page.shared_entries_count": [
         "%d paylaşılan makaleler",
         "%d paylaşılan makaleler"
     ],
-    "page.shared_entries.title": "Paylaşılan makaleler",
+    "page.starred.title": "Yıldızlı",
     "page.starred_entry_count": [
         "%d yıldızlanmış makale",
         "%d yıldızlanmış makale"
     ],
-    "page.starred.title": "Yıldızlı",
     "page.total_entry_count": [
         "Toplamda %d makale",
         "Toplamda %d makale"
     ],
+    "page.unread.title": "Okunmadı",
     "page.unread_entry_count": [
         "Toplamda %d okunmamış makale",
         "Toplamda %d okunmamış makale"
     ],
-    "page.unread.title": "Okunmadı",
     "page.users.actions": "Eylemler",
     "page.users.admin.no": "Hayır",
     "page.users.admin.yes": "Evet",

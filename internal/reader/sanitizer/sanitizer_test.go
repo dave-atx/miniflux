@@ -25,7 +25,7 @@ func BenchmarkSanitize(b *testing.B) {
 		}
 		testCases[filename][1] = string(data)
 	}
-	for range b.N {
+	for b.Loop() {
 		for _, v := range testCases {
 			SanitizeHTMLWithDefaultOptions(v[0], v[1])
 		}
@@ -73,7 +73,7 @@ func TestImgWithWidthAndHeightAttribute(t *testing.T) {
 	}
 }
 
-func TestImgWithWidthAndHeightAttributeLargerThanMinifluxLayout(t *testing.T) {
+func TestImgWithWidthAttributeLargerThanMinifluxLayout(t *testing.T) {
 	input := `<img src="https://example.org/image.png" width="1200" height="675">`
 	expected := `<img src="https://example.org/image.png" loading="lazy">`
 	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
@@ -93,9 +93,49 @@ func TestImgWithIncorrectWidthAndHeightAttribute(t *testing.T) {
 	}
 }
 
-func TestImgWithEmptywidthAndHeightAttribute(t *testing.T) {
+func TestImgWithIncorrectWidthAttribute(t *testing.T) {
+	input := `<img src="https://example.org/image.png" width="10px" height="20">`
+	expected := `<img src="https://example.org/image.png" height="20" loading="lazy">`
+	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
+
+	if output != expected {
+		t.Errorf(`Wrong output: %s`, output)
+	}
+}
+
+func TestImgWithEmptyWidthAndHeightAttribute(t *testing.T) {
 	input := `<img src="https://example.org/image.png" width="" height="">`
 	expected := `<img src="https://example.org/image.png" loading="lazy">`
+	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
+
+	if output != expected {
+		t.Errorf(`Wrong output: %s`, output)
+	}
+}
+
+func TestImgWithIncorrectHeightAttribute(t *testing.T) {
+	input := `<img src="https://example.org/image.png" width="10" height="20px">`
+	expected := `<img src="https://example.org/image.png" width="10" loading="lazy">`
+	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
+
+	if output != expected {
+		t.Errorf(`Wrong output: %s`, output)
+	}
+}
+
+func TestImgWithNegativeWidthAttribute(t *testing.T) {
+	input := `<img src="https://example.org/image.png" width="-10" height="20">`
+	expected := `<img src="https://example.org/image.png" height="20" loading="lazy">`
+	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
+
+	if output != expected {
+		t.Errorf(`Wrong output: %s`, output)
+	}
+}
+
+func TestImgWithNegativeHeightAttribute(t *testing.T) {
+	input := `<img src="https://example.org/image.png" width="10" height="-20">`
+	expected := `<img src="https://example.org/image.png" width="10" loading="lazy">`
 	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
 
 	if output != expected {
@@ -709,8 +749,18 @@ func TestImageSrcWithTrackers(t *testing.T) {
 	}
 }
 
-func TestPixelTracker(t *testing.T) {
+func Test1x1PixelTracker(t *testing.T) {
 	input := `<p><img src="https://tracker1.example.org/" height="1" width="1"> and <img src="https://tracker2.example.org/" height="1" width="1"/></p>`
+	expected := `<p> and </p>`
+	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
+
+	if expected != output {
+		t.Errorf(`Wrong output: "%s" != "%s"`, expected, output)
+	}
+}
+
+func Test0x0PixelTracker(t *testing.T) {
+	input := `<p><img src="https://tracker1.example.org/" height="0" width="0"> and <img src="https://tracker2.example.org/" height="0" width="0"/></p>`
 	expected := `<p> and </p>`
 	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
 
@@ -808,13 +858,23 @@ func TestReplaceYoutubeURLWithCustomURL(t *testing.T) {
 	}
 }
 
-func TestReplaceIframeVimedoDNTURL(t *testing.T) {
+func TestVimeoIframeRewriteWithQueryString(t *testing.T) {
 	input := `<iframe src="https://player.vimeo.com/video/123456?title=0&amp;byline=0"></iframe>`
 	expected := `<iframe src="https://player.vimeo.com/video/123456?title=0&amp;byline=0&amp;dnt=1" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy"></iframe>`
 	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
 
 	if expected != output {
-		t.Errorf(`Wrong output: "%s" != "%s"`, expected, output)
+		t.Errorf(`Wrong output: %q != %q`, expected, output)
+	}
+}
+
+func TestVimeoIframeRewriteWithoutQueryString(t *testing.T) {
+	input := `<iframe src="https://player.vimeo.com/video/123456"></iframe>`
+	expected := `<iframe src="https://player.vimeo.com/video/123456?dnt=1" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy"></iframe>`
+	output := SanitizeHTMLWithDefaultOptions("http://example.org/", input)
+
+	if expected != output {
+		t.Errorf(`Wrong output: %q != %q`, expected, output)
 	}
 }
 

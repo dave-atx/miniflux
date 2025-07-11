@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"regexp"
 	"strings"
 
 	"miniflux.app/v2/internal/urllib"
@@ -16,18 +15,15 @@ import (
 	"golang.org/x/net/html"
 )
 
-const (
-	defaultTagsToScore = "section,h2,h3,h4,h5,h6,p,td,pre,div"
-)
+const defaultTagsToScore = "section,h2,h3,h4,h5,h6,p,td,pre,div"
 
 var (
-	divToPElementsRegexp = regexp.MustCompile(`(?i)<(?:a|blockquote|dl|div|img|ol|p|pre|table|ul)[ />]`)
+	strongCandidates  = [...]string{"popupbody", "-ad", "g-plus"}
+	maybeCandidate    = [...]string{"and", "article", "body", "column", "main", "shadow"}
+	unlikelyCandidate = [...]string{"banner", "breadcrumbs", "combx", "comment", "community", "cover-wrap", "disqus", "extra", "foot", "header", "legends", "menu", "modal", "related", "remark", "replies", "rss", "shoutbox", "sidebar", "skyscraper", "social", "sponsor", "supplemental", "ad-break", "agegate", "pagination", "pager", "popup", "yom-remote"}
 
-	okMaybeItsACandidateRegexp = regexp.MustCompile(`and|article|body|column|main|shadow`)
-	unlikelyCandidatesRegexp   = regexp.MustCompile(`banner|breadcrumbs|combx|comment|community|cover-wrap|disqus|extra|foot|header|legends|menu|modal|related|remark|replies|rss|shoutbox|sidebar|skyscraper|social|sponsor|supplemental|ad-break|agegate|pagination|pager|popup|yom-remote`)
-
-	negativeRegexp = regexp.MustCompile(`hid|banner|combx|comment|com-|contact|foot|masthead|media|meta|modal|outbrain|promo|related|scroll|share|shoutbox|sidebar|skyscraper|sponsor|shopping|tags|tool|widget|byline|author|dateline|writtenby`)
-	positiveRegexp = regexp.MustCompile(`article|body|content|entry|hentry|h-entry|main|page|pagination|post|text|blog|story`)
+	positiveKeywords = [...]string{"article", "blog", "body", "content", "entry", "h-entry", "hentry", "main", "page", "pagination", "post", "story", "text"}
+	negativeKeywords = [...]string{"author", "banner", "byline", "com-", "combx", "comment", "contact", "dateline", "foot", "hid", "masthead", "media", "meta", "modal", "outbrain", "promo", "related", "scroll", "share", "shopping", "shoutbox", "sidebar", "skyscraper", "sponsor", "tags", "tool", "widget", "writtenby"}
 )
 
 type candidate struct {
@@ -36,23 +32,31 @@ type candidate struct {
 }
 
 func (c *candidate) Node() *html.Node {
+	if c.selection.Length() == 0 {
+		return nil
+	}
 	return c.selection.Get(0)
 }
 
 func (c *candidate) String() string {
+	node := c.Node()
+	if node == nil {
+		return fmt.Sprintf("empty => %f", c.score)
+	}
+
 	id, _ := c.selection.Attr("id")
 	class, _ := c.selection.Attr("class")
 
 	switch {
 	case id != "" && class != "":
-		return fmt.Sprintf("%s#%s.%s => %f", c.Node().DataAtom, id, class, c.score)
+		return fmt.Sprintf("%s#%s.%s => %f", node.DataAtom, id, class, c.score)
 	case id != "":
-		return fmt.Sprintf("%s#%s => %f", c.Node().DataAtom, id, c.score)
+		return fmt.Sprintf("%s#%s => %f", node.DataAtom, id, c.score)
 	case class != "":
-		return fmt.Sprintf("%s.%s => %f", c.Node().DataAtom, class, c.score)
+		return fmt.Sprintf("%s.%s => %f", node.DataAtom, class, c.score)
 	}
 
-	return fmt.Sprintf("%s => %f", c.Node().DataAtom, c.score)
+	return fmt.Sprintf("%s => %f", node.DataAtom, c.score)
 }
 
 type candidateList map[*html.Node]*candidate
@@ -98,45 +102,66 @@ func ExtractContent(page io.Reader) (baseURL string, extractedContent string, er
 	return baseURL, extractedContent, nil
 }
 
+func getSelectionLength(s *goquery.Selection) int {
+	var getLengthOfTextContent func(*html.Node) int
+	getLengthOfTextContent = func(n *html.Node) int {
+		total := 0
+		if n.Type == html.TextNode {
+			total += len(n.Data)
+		}
+		if n.FirstChild != nil {
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				total += getLengthOfTextContent(c)
+			}
+		}
+		return total
+	}
+
+	sum := 0
+	for _, n := range s.Nodes {
+		sum += getLengthOfTextContent(n)
+	}
+	return sum
+}
+
 // Now that we have the top candidate, look through its siblings for content that might also be related.
 // Things like preambles, content split by ads that we removed, etc.
 func getArticle(topCandidate *candidate, candidates candidateList) string {
 	var output strings.Builder
 	output.WriteString("<div>")
-	siblingScoreThreshold := max(10, topCandidate.score*.2)
+	siblingScoreThreshold := max(10, topCandidate.score/5)
 
 	topCandidate.selection.Siblings().Union(topCandidate.selection).Each(func(i int, s *goquery.Selection) {
 		append := false
+		tag := "div"
 		node := s.Get(0)
 
-		if node == topCandidate.Node() {
+		topNode := topCandidate.Node()
+		if topNode != nil && node == topNode {
 			append = true
 		} else if c, ok := candidates[node]; ok && c.score >= siblingScoreThreshold {
 			append = true
-		}
-
-		if s.Is("p") {
+		} else if s.Is("p") {
+			tag = node.Data
 			linkDensity := getLinkDensity(s)
-			content := s.Text()
-			contentLength := len(content)
+			contentLength := getSelectionLength(s)
 
 			if contentLength >= 80 {
 				if linkDensity < .25 {
 					append = true
 				}
 			} else {
-				if linkDensity == 0 && containsSentence(content) {
-					append = true
+				if linkDensity == 0 {
+					// It's a small selection, so .Text doesn't impact performances too much.
+					content := s.Text()
+					if containsSentence(content) {
+						append = true
+					}
 				}
 			}
 		}
 
 		if append {
-			tag := "div"
-			if s.Is("p") {
-				tag = node.Data
-			}
-
 			html, _ := s.Html()
 			output.WriteString("<" + tag + ">" + html + "</" + tag + ">")
 		}
@@ -145,31 +170,47 @@ func getArticle(topCandidate *candidate, candidates candidateList) string {
 	output.WriteString("</div>")
 	return output.String()
 }
+func shouldRemoveCandidate(str string) bool {
+	str = strings.ToLower(str)
 
-func removeUnlikelyCandidates(document *goquery.Document) {
-	var shouldRemove = func(str string) bool {
-		str = strings.ToLower(str)
-		if strings.Contains(str, "popupbody") || strings.Contains(str, "-ad") || strings.Contains(str, "g-plus") {
-			return true
-		} else if unlikelyCandidatesRegexp.MatchString(str) && !okMaybeItsACandidateRegexp.MatchString(str) {
+	// Those candidates have no false-positives, no need to check against `maybeCandidate`
+	for _, strongCandidate := range strongCandidates {
+		if strings.Contains(str, strongCandidate) {
 			return true
 		}
-		return false
 	}
 
+	for _, unlikelyCandidate := range unlikelyCandidate {
+		if strings.Contains(str, unlikelyCandidate) {
+			// Do we have a false positive?
+			for _, maybe := range maybeCandidate {
+				if strings.Contains(str, maybe) {
+					return false
+				}
+			}
+
+			// Nope, it's a true positive!
+			return true
+		}
+	}
+	return false
+}
+
+func removeUnlikelyCandidates(document *goquery.Document) {
 	document.Find("*").Each(func(i int, s *goquery.Selection) {
 		if s.Length() == 0 || s.Get(0).Data == "html" || s.Get(0).Data == "body" {
 			return
 		}
 
-		if class, ok := s.Attr("class"); ok {
-			if shouldRemove(class) {
-				s.Remove()
-			}
-		} else if id, ok := s.Attr("id"); ok {
-			if shouldRemove(id) {
-				s.Remove()
-			}
+		// Don't remove elements within code blocks (pre or code tags)
+		if s.Closest("pre, code").Length() > 0 {
+			return
+		}
+
+		if class, ok := s.Attr("class"); ok && shouldRemoveCandidate(class) {
+			s.Remove()
+		} else if id, ok := s.Attr("id"); ok && shouldRemoveCandidate(id) {
+			s.Remove()
 		}
 	})
 }
@@ -195,15 +236,14 @@ func getTopCandidate(document *goquery.Document, candidates candidateList) *cand
 // Loop through all paragraphs, and assign a score to them based on how content-y they look.
 // Then add their score to their parent node.
 // A score is determined by things like number of commas, class names, etc.
-// Maybe eventually link density.
 func getCandidates(document *goquery.Document) candidateList {
 	candidates := make(candidateList)
 
 	document.Find(defaultTagsToScore).Each(func(i int, s *goquery.Selection) {
-		text := s.Text()
+		textLen := getSelectionLength(s)
 
 		// If this paragraph is less than 25 characters, don't even count it.
-		if len(text) < 25 {
+		if textLen < 25 {
 			return
 		}
 
@@ -230,10 +270,11 @@ func getCandidates(document *goquery.Document) candidateList {
 		contentScore := float32(1.0)
 
 		// Add points for any commas within this paragraph.
+		text := s.Text()
 		contentScore += float32(strings.Count(text, ",") + 1)
 
 		// For every 100 characters in this paragraph, add another point. Up to 3 points.
-		contentScore += float32(min(len(text)/100.0, 3))
+		contentScore += float32(min(textLen/100.0, 3))
 
 		candidates[parentNode].score += contentScore
 		if grandParentNode != nil {
@@ -254,6 +295,11 @@ func getCandidates(document *goquery.Document) candidateList {
 func scoreNode(s *goquery.Selection) *candidate {
 	c := &candidate{selection: s, score: 0}
 
+	// Check if selection is empty to avoid panic
+	if s.Length() == 0 {
+		return c
+	}
+
 	switch s.Get(0).DataAtom.String() {
 	case "div":
 		c.score += 5
@@ -272,15 +318,14 @@ func scoreNode(s *goquery.Selection) *candidate {
 // Get the density of links as a percentage of the content
 // This is the amount of text that is inside a link divided by the total text in the node.
 func getLinkDensity(s *goquery.Selection) float32 {
-	textLength := len(s.Text())
-
-	if textLength == 0 {
+	sum := getSelectionLength(s)
+	if sum == 0 {
 		return 0
 	}
 
-	linkLength := len(s.Find("a").Text())
+	linkLength := getSelectionLength(s.Find("a"))
 
-	return float32(linkLength) / float32(textLength)
+	return float32(linkLength) / float32(sum)
 }
 
 // Get an elements class/id weight. Uses regular expressions to tell if this
@@ -289,32 +334,50 @@ func getClassWeight(s *goquery.Selection) float32 {
 	weight := 0
 
 	if class, ok := s.Attr("class"); ok {
-		class = strings.ToLower(class)
-		if negativeRegexp.MatchString(class) {
-			weight -= 25
-		} else if positiveRegexp.MatchString(class) {
-			weight += 25
-		}
+		weight += getWeight(class)
 	}
-
 	if id, ok := s.Attr("id"); ok {
-		id = strings.ToLower(id)
-		if negativeRegexp.MatchString(id) {
-			weight -= 25
-		} else if positiveRegexp.MatchString(id) {
-			weight += 25
-		}
+		weight += getWeight(id)
 	}
 
 	return float32(weight)
 }
 
+func getWeight(s string) int {
+	s = strings.ToLower(s)
+	for _, keyword := range negativeKeywords {
+		if strings.Contains(s, keyword) {
+			return -25
+		}
+	}
+	for _, keyword := range positiveKeywords {
+		if strings.Contains(s, keyword) {
+			return +25
+		}
+	}
+	return 0
+}
+
 func transformMisusedDivsIntoParagraphs(document *goquery.Document) {
 	document.Find("div").Each(func(i int, s *goquery.Selection) {
-		html, _ := s.Html()
-		if !divToPElementsRegexp.MatchString(html) {
+		nodes := s.Children().Nodes
+
+		if len(nodes) == 0 {
 			node := s.Get(0)
 			node.Data = "p"
+			return
+		}
+
+		for _, node := range nodes {
+			switch node.Data {
+			case "a", "blockquote", "div", "dl",
+				"img", "ol", "p", "pre",
+				"table", "ul":
+				return
+			default:
+				currentNode := s.Get(0)
+				currentNode.Data = "p"
+			}
 		}
 	})
 }

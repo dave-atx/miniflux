@@ -134,8 +134,8 @@ var (
 		"stats.wordpress.com",
 		"twitter.com/intent/tweet",
 		"twitter.com/share",
-		"www.facebook.com/sharer.php",
-		"www.linkedin.com/shareArticle",
+		"facebook.com/sharer.php",
+		"linkedin.com/shareArticle",
 	}
 
 	validURISchemes = map[string]struct{}{
@@ -180,12 +180,6 @@ var (
 		"hack":   {}, // https://apps.apple.com/it/app/hack-for-hacker-news-reader/id1464477788?l=en-GB
 	}
 
-	blockedTags = map[string]struct{}{
-		"noscript": {},
-		"script":   {},
-		"style":    {},
-	}
-
 	dataAttributeAllowedPrefixes = []string{
 		"data:image/avif",
 		"data:image/apng",
@@ -210,10 +204,15 @@ func SanitizeHTMLWithDefaultOptions(baseURL, rawHTML string) string {
 }
 
 func SanitizeHTML(baseURL, rawHTML string, sanitizerOptions *SanitizerOptions) string {
-	var buffer strings.Builder
 	var tagStack []string
 	var parentTag string
 	var blockedStack []string
+	var buffer strings.Builder
+
+	// Educated guess about how big the sanitized HTML will be,
+	// to reduce the amount of buffer re-allocations in this function.
+	estimatedRatio := len(rawHTML) * 3 / 4
+	buffer.Grow(estimatedRatio)
 
 	// Errors are a non-issue, so they're handled later in the function.
 	parsedBaseUrl, _ := url.Parse(baseURL)
@@ -265,7 +264,7 @@ func SanitizeHTML(baseURL, rawHTML string, sanitizerOptions *SanitizerOptions) s
 			}
 
 			if len(blockedStack) == 0 && isValidTag(tagName) {
-				attrNames, htmlAttributes := sanitizeAttributes(parsedBaseUrl, baseURL, tagName, token.Attr, sanitizerOptions)
+				attrNames, htmlAttributes := sanitizeAttributes(parsedBaseUrl, tagName, token.Attr, sanitizerOptions)
 				if hasRequiredAttributes(tagName, attrNames) {
 					if len(attrNames) > 0 {
 						// Rewrite the start tag with allowed attributes.
@@ -293,7 +292,7 @@ func SanitizeHTML(baseURL, rawHTML string, sanitizerOptions *SanitizerOptions) s
 				continue
 			}
 			if len(blockedStack) == 0 && isValidTag(tagName) {
-				attrNames, htmlAttributes := sanitizeAttributes(parsedBaseUrl, baseURL, tagName, token.Attr, sanitizerOptions)
+				attrNames, htmlAttributes := sanitizeAttributes(parsedBaseUrl, tagName, token.Attr, sanitizerOptions)
 				if hasRequiredAttributes(tagName, attrNames) {
 					if len(attrNames) > 0 {
 						buffer.WriteString("<" + tagName + " " + htmlAttributes + "/>")
@@ -306,47 +305,50 @@ func SanitizeHTML(baseURL, rawHTML string, sanitizerOptions *SanitizerOptions) s
 	}
 }
 
-func sanitizeAttributes(parsedBaseUrl *url.URL, baseURL, tagName string, attributes []html.Attribute, sanitizerOptions *SanitizerOptions) ([]string, string) {
+func sanitizeAttributes(parsedBaseUrl *url.URL, tagName string, attributes []html.Attribute, sanitizerOptions *SanitizerOptions) ([]string, string) {
 	var htmlAttrs, attrNames []string
 	var err error
-	var isImageLargerThanLayout bool
 	var isAnchorLink bool
 
-	if tagName == "img" {
-		imgWidth := getIntegerAttributeValue("width", attributes)
-		isImageLargerThanLayout = imgWidth > 750
-	}
-
 	for _, attribute := range attributes {
-		value := attribute.Val
-
 		if !isValidAttribute(tagName, attribute.Key) {
 			continue
 		}
 
-		if tagName == "math" && attribute.Key == "xmlns" && value != "http://www.w3.org/1998/Math/MathML" {
-			value = "http://www.w3.org/1998/Math/MathML"
-		}
+		value := attribute.Val
 
-		if tagName == "img" && attribute.Key == "fetchpriority" {
-			if !isValidFetchPriorityValue(value) {
-				continue
+		switch tagName {
+		case "math":
+			if attribute.Key == "xmlns" {
+				if value != "http://www.w3.org/1998/Math/MathML" {
+					value = "http://www.w3.org/1998/Math/MathML"
+				}
 			}
-		}
+		case "img":
+			switch attribute.Key {
+			case "fetchpriority":
+				if !isValidFetchPriorityValue(value) {
+					continue
+				}
+			case "decoding":
+				if !isValidDecodingValue(value) {
+					continue
+				}
+			case "width", "height":
+				if !isPositiveInteger(value) {
+					continue
+				}
 
-		if tagName == "img" && attribute.Key == "decoding" {
-			if !isValidDecodingValue(value) {
-				continue
+				// Discard width and height attributes when width is larger than Miniflux layout (750px)
+				if imgWidth := getIntegerAttributeValue("width", attributes); imgWidth > 750 {
+					continue
+				}
+			case "srcset":
+				value = sanitizeSrcsetAttr(parsedBaseUrl, value)
 			}
-		}
-
-		if (tagName == "img" || tagName == "source") && attribute.Key == "srcset" {
-			value = sanitizeSrcsetAttr(baseURL, value)
-		}
-
-		if tagName == "img" && (attribute.Key == "width" || attribute.Key == "height") {
-			if isImageLargerThanLayout || !isPositiveInteger(value) {
-				continue
+		case "source":
+			if attribute.Key == "srcset" {
+				value = sanitizeSrcsetAttr(parsedBaseUrl, value)
 			}
 		}
 
@@ -363,7 +365,7 @@ func sanitizeAttributes(parsedBaseUrl *url.URL, baseURL, tagName string, attribu
 				value = attribute.Val
 				isAnchorLink = true
 			default:
-				value, err = urllib.AbsoluteURL(baseURL, value)
+				value, err = absoluteURLParsedBase(parsedBaseUrl, value)
 				if err != nil {
 					continue
 				}
@@ -446,7 +448,7 @@ func isPixelTracker(tagName string, attributes []html.Attribute) bool {
 	hasWidth := false
 
 	for _, attribute := range attributes {
-		if attribute.Val == "1" {
+		if attribute.Val == "1" || attribute.Val == "0" {
 			switch attribute.Key {
 			case "height":
 				hasHeight = true
@@ -492,7 +494,7 @@ func isBlockedResource(absoluteURL string) bool {
 }
 
 func isValidIframeSource(iframeSourceURL string) bool {
-	iframeSourceDomain := strings.TrimPrefix(urllib.Domain(iframeSourceURL), "www.")
+	iframeSourceDomain := urllib.DomainWithoutWWW(iframeSourceURL)
 
 	if _, ok := iframeAllowList[iframeSourceDomain]; ok {
 		return true
@@ -517,11 +519,11 @@ func rewriteIframeURL(link string) string {
 
 	switch strings.TrimPrefix(u.Hostname(), "www.") {
 	case "youtube.com":
-		if strings.HasPrefix(u.Path, "/embed/") {
+		if pathWithoutEmbed, ok := strings.CutPrefix(u.Path, "/embed/"); ok {
 			if len(u.RawQuery) > 0 {
-				return config.Opts.YouTubeEmbedUrlOverride() + strings.TrimPrefix(u.Path, "/embed/") + "?" + u.RawQuery
+				return config.Opts.YouTubeEmbedUrlOverride() + pathWithoutEmbed + "?" + u.RawQuery
 			}
-			return config.Opts.YouTubeEmbedUrlOverride() + strings.TrimPrefix(u.Path, "/embed/")
+			return config.Opts.YouTubeEmbedUrlOverride() + pathWithoutEmbed
 		}
 	case "player.vimeo.com":
 		// See https://help.vimeo.com/hc/en-us/articles/12426260232977-About-Player-parameters
@@ -537,15 +539,18 @@ func rewriteIframeURL(link string) string {
 }
 
 func isBlockedTag(tagName string) bool {
-	_, ok := blockedTags[tagName]
-	return ok
+	switch tagName {
+	case "noscript", "script", "style":
+		return true
+	}
+	return false
 }
 
-func sanitizeSrcsetAttr(baseURL, value string) string {
+func sanitizeSrcsetAttr(parsedBaseURL *url.URL, value string) string {
 	imageCandidates := ParseSrcSetAttribute(value)
 
 	for _, imageCandidate := range imageCandidates {
-		if absoluteURL, err := urllib.AbsoluteURL(baseURL, imageCandidate.ImageURL); err == nil {
+		if absoluteURL, err := absoluteURLParsedBase(parsedBaseURL, imageCandidate.ImageURL); err == nil {
 			imageCandidate.ImageURL = absoluteURL
 		}
 	}
@@ -583,11 +588,33 @@ func getIntegerAttributeValue(name string, attributes []html.Attribute) int {
 }
 
 func isValidFetchPriorityValue(value string) bool {
-	allowedValues := []string{"high", "low", "auto"}
-	return slices.Contains(allowedValues, value)
+	switch value {
+	case "high", "low", "auto":
+		return true
+	}
+	return false
 }
 
 func isValidDecodingValue(value string) bool {
-	allowedValues := []string{"sync", "async", "auto"}
-	return slices.Contains(allowedValues, value)
+	switch value {
+	case "sync", "async", "auto":
+		return true
+	}
+	return false
+}
+
+// absoluteURLParsedBase is used instead of urllib.AbsoluteURL to avoid parsing baseURL over and over.
+func absoluteURLParsedBase(parsedBaseURL *url.URL, input string) (string, error) {
+	absURL, u, err := urllib.GetAbsoluteURL(input)
+	if err != nil {
+		return "", err
+	}
+	if absURL != "" {
+		return absURL, nil
+	}
+	if parsedBaseURL == nil {
+		return "", nil
+	}
+
+	return parsedBaseURL.ResolveReference(u).String(), nil
 }

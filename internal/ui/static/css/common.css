@@ -145,7 +145,7 @@ a:hover {
 /* Page header and footer*/
 .page-header {
     padding-inline: 3px;
-    margin-bottom: 25px;
+    margin-bottom: 10px;
 }
 
 .page-footer {
@@ -426,6 +426,7 @@ input[type="number"] {
     width: 250px;
     font-size: 99%;
     margin-top: 5px;
+    margin-bottom: 10px;;
     appearance: none;
 }
 

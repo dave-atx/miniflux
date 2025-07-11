@@ -763,8 +763,7 @@ func (h *handler) streamItemContentsHandler(w http.ResponseWriter, r *http.Reque
 		}
 
 		entry.Content = mediaproxy.RewriteDocumentWithAbsoluteProxyURL(h.router, entry.Content)
-
-		entry.Enclosures.ProxifyEnclosureURL(h.router)
+		entry.Enclosures.ProxifyEnclosureURL(h.router, config.Opts.MediaProxyMode(), config.Opts.MediaProxyResourceTypes())
 
 		contentItems[i] = contentItem{
 			ID:            convertEntryIDToLongFormItemID(entry.ID),
@@ -1092,7 +1091,7 @@ func (h *handler) handleReadingListStreamHandler(w http.ResponseWriter, r *http.
 				slog.String("handler", "handleReadingListStreamHandler"),
 				slog.String("client_ip", clientIP),
 				slog.String("user_agent", r.UserAgent()),
-				slog.Any("filter_type", s.Type),
+				slog.Int("filter_type", int(s.Type)),
 			)
 		}
 	}
