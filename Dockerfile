@@ -1,10 +1,10 @@
-FROM docker.io/library/golang:trixie AS build
+FROM docker.io/library/golang:bookworm AS build
 ADD . /go/src/app
 WORKDIR /go/src/app
 RUN make
 
 
-FROM gcr.io/distroless/static-debian13:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot
 
 EXPOSE 8080
 ENV LISTEN_ADDR 0.0.0.0:8080
