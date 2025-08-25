@@ -1,11 +1,10 @@
-ARG GO_VERSION=1.22.2
-FROM golang:${GO_VERSION}-bookworm AS builder
+FROM docker.io/library/golang:trixie AS build
 ADD . /go/src/app
 WORKDIR /go/src/app
 RUN make
 
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot
 
 EXPOSE 8080
 ENV LISTEN_ADDR 0.0.0.0:8080
