@@ -1,0 +1,6 @@
+.github
+.claude
+/miniflux
+miniflux-*
+*.deb
+*.rpm
