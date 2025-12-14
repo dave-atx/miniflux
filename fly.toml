@@ -1,0 +1,60 @@
+# fly.toml file generated for dm-miniflux on 2022-05-17T14:37:31-04:00
+
+app = "dm-miniflux"
+
+kill_signal = "SIGINT"
+kill_timeout = 5
+processes = []
+
+[build]
+  [build.args]
+    GO_VERSION = '1.25'
+    
+[metrics]
+port = 9091
+path = "/metrics"
+
+[env]
+  PORT = "8080"
+  BASE_URL = "https://miniflux.marquard.org/"
+  RUN_MIGRATIONS = "1"
+  POLLING_FREQUENCY = "5"
+  POLLING_PARSING_ERROR_LIMIT = "60"
+  SCHEDULER_ROUND_ROBIN_MIN_INTERVAL = "5"
+  METRICS_COLLECTOR = "1"
+  METRICS_ALLOWED_NETWORKS = "0.0.0.0/0"
+  WEBAUTHN = true
+
+
+[experimental]
+  allowed_public_ports = []
+  auto_rollback = true
+
+[[services]]
+  internal_port = 8080
+  processes = ["app"]
+  protocol = "tcp"
+  script_checks = []
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  [[services.ports]]
+    force_https = true
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.http_checks]]
+    grace_period = "2s"
+    interval = "10s"
+    restart_limit = 3
+    timeout = "2s"
+    method = "get"
+    protocol = "http"
+    path = "/healthcheck"
