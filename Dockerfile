@@ -1,11 +1,11 @@
 ARG GO_VERSION=1
-FROM golang:${GO_VERSION}-bookworm AS builder
+FROM golang:${GO_VERSION}-trixie AS builder
 ADD . /go/src/app
 WORKDIR /go/src/app
-RUN CGO_ENABLED=0 make miniflux
+RUN make miniflux
 
 
-FROM gcr.io/distroless/base-debian12:nonroot
+FROM gcr.io/distroless/base-debian13:nonroot
 
 EXPOSE 8080
 ENV LISTEN_ADDR 0.0.0.0:8080
