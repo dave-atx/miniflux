@@ -1364,6 +1364,30 @@ func TestHTTPClientTimeoutOptionParsing(t *testing.T) {
 	}
 }
 
+func TestIconFetchAllowPrivateNetworksOptionParsing(t *testing.T) {
+	configParser := NewConfigParser()
+
+	if configParser.options.IconFetchAllowPrivateNetworks() {
+		t.Fatalf("Expected ICON_FETCH_ALLOW_PRIVATE_NETWORKS to be disabled by default")
+	}
+
+	if err := configParser.parseLines([]string{"ICON_FETCH_ALLOW_PRIVATE_NETWORKS=1"}); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if !configParser.options.IconFetchAllowPrivateNetworks() {
+		t.Fatalf("Expected ICON_FETCH_ALLOW_PRIVATE_NETWORKS to be enabled")
+	}
+
+	if err := configParser.parseLines([]string{"ICON_FETCH_ALLOW_PRIVATE_NETWORKS=0"}); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if configParser.options.IconFetchAllowPrivateNetworks() {
+		t.Fatalf("Expected ICON_FETCH_ALLOW_PRIVATE_NETWORKS to be disabled")
+	}
+}
+
 func TestHTTPServerTimeoutOptionParsing(t *testing.T) {
 	configParser := NewConfigParser()
 
@@ -1428,6 +1452,30 @@ func TestMediaProxyHTTPClientTimeoutOptionParsing(t *testing.T) {
 
 	if configParser.options.MediaProxyHTTPClientTimeout().Seconds() != 60 {
 		t.Fatalf("Expected MEDIA_PROXY_HTTP_CLIENT_TIMEOUT to be 60 seconds")
+	}
+}
+
+func TestMediaProxyAllowPrivateNetworksOptionParsing(t *testing.T) {
+	configParser := NewConfigParser()
+
+	if configParser.options.MediaProxyAllowPrivateNetworks() {
+		t.Fatalf("Expected MEDIA_PROXY_ALLOW_PRIVATE_NETWORKS to be disabled by default")
+	}
+
+	if err := configParser.parseLines([]string{"MEDIA_PROXY_ALLOW_PRIVATE_NETWORKS=1"}); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if !configParser.options.MediaProxyAllowPrivateNetworks() {
+		t.Fatalf("Expected MEDIA_PROXY_ALLOW_PRIVATE_NETWORKS to be enabled")
+	}
+
+	if err := configParser.parseLines([]string{"MEDIA_PROXY_ALLOW_PRIVATE_NETWORKS=0"}); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if configParser.options.MediaProxyAllowPrivateNetworks() {
+		t.Fatalf("Expected MEDIA_PROXY_ALLOW_PRIVATE_NETWORKS to be disabled")
 	}
 }
 
@@ -1614,8 +1662,8 @@ func TestSetLogLevelFunction(t *testing.T) {
 	if configParser.options.LogLevel() != "debug" {
 		t.Fatalf("Expected LOG_LEVEL to be 'debug' after SetLogLevel('debug'), got '%s'", configParser.options.LogLevel())
 	}
-	if configParser.options.options["LOG_LEVEL"].RawValue != "debug" {
-		t.Fatalf("Expected LOG_LEVEL RawValue to be 'debug', got '%s'", configParser.options.options["LOG_LEVEL"].RawValue)
+	if configParser.options.options["LOG_LEVEL"].rawValue != "debug" {
+		t.Fatalf("Expected LOG_LEVEL RawValue to be 'debug', got '%s'", configParser.options.options["LOG_LEVEL"].rawValue)
 	}
 
 	// Test setting log level to warning
@@ -1623,8 +1671,8 @@ func TestSetLogLevelFunction(t *testing.T) {
 	if configParser.options.LogLevel() != "warning" {
 		t.Fatalf("Expected LOG_LEVEL to be 'warning' after SetLogLevel('warning'), got '%s'", configParser.options.LogLevel())
 	}
-	if configParser.options.options["LOG_LEVEL"].RawValue != "warning" {
-		t.Fatalf("Expected LOG_LEVEL RawValue to be 'warning', got '%s'", configParser.options.options["LOG_LEVEL"].RawValue)
+	if configParser.options.options["LOG_LEVEL"].rawValue != "warning" {
+		t.Fatalf("Expected LOG_LEVEL RawValue to be 'warning', got '%s'", configParser.options.options["LOG_LEVEL"].rawValue)
 	}
 }
 
