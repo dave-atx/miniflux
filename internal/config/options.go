@@ -238,14 +238,6 @@ func NewConfigOptions() *configOptions {
 				rawValue:        "0",
 				valueType:       boolType,
 			},
-			"FILTER_ENTRY_MAX_AGE_DAYS": {
-				parsedIntValue: 0,
-				rawValue:       "0",
-				valueType:      intType,
-				validator: func(rawValue string) error {
-					return validateGreaterOrEqualThan(rawValue, 0)
-				},
-			},
 			"FORCE_REFRESH_INTERVAL": {
 				parsedDuration: 30 * time.Minute,
 				rawValue:       "30",
@@ -568,6 +560,11 @@ func NewConfigOptions() *configOptions {
 					return validateGreaterOrEqualThan(rawValue, 1)
 				},
 			},
+			"TRUSTED_REVERSE_PROXY_NETWORKS": {
+				parsedStringList: []string{},
+				rawValue:         "",
+				valueType:        stringListType,
+			},
 			"WATCHDOG": {
 				parsedBoolValue: true,
 				rawValue:        "1",
@@ -711,10 +708,6 @@ func (c *configOptions) FetchOdyseeWatchTime() bool {
 
 func (c *configOptions) FetchYouTubeWatchTime() bool {
 	return c.options["FETCH_YOUTUBE_WATCH_TIME"].parsedBoolValue
-}
-
-func (c *configOptions) FilterEntryMaxAgeDays() int {
-	return c.options["FILTER_ENTRY_MAX_AGE_DAYS"].parsedIntValue
 }
 
 func (c *configOptions) ForceRefreshInterval() time.Duration {
@@ -968,6 +961,10 @@ func (c *configOptions) SchedulerRoundRobinMaxInterval() time.Duration {
 
 func (c *configOptions) SchedulerRoundRobinMinInterval() time.Duration {
 	return c.options["SCHEDULER_ROUND_ROBIN_MIN_INTERVAL"].parsedDuration
+}
+
+func (c *configOptions) TrustedReverseProxyNetworks() []string {
+	return c.options["TRUSTED_REVERSE_PROXY_NETWORKS"].parsedStringList
 }
 
 func (c *configOptions) Watchdog() bool {
