@@ -18,6 +18,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/andybalholm/brotli/matchfinder"
+	"github.com/klauspost/compress/zstd"
 )
 
 const compressionThreshold = 1024
@@ -40,6 +41,12 @@ var (
 	flateWriterPool = sync.Pool{
 		New: func() any {
 			w, _ := flate.NewWriter(io.Discard, flate.DefaultCompression)
+			return w
+		},
+	}
+	zstdWriterPool = sync.Pool{
+		New: func() any {
+			w, _ := zstd.NewWriter(io.Discard)
 			return w
 		},
 	}
@@ -159,7 +166,7 @@ func (b *Builder) writeHeaders() {
 }
 
 // values should be in sync with [Builder.compress] switch/case.
-var acceptEncoding = AcceptEncoding("br", "gzip", "deflate")
+var acceptEncoding = AcceptEncoding("zstd", "br", "gzip", "deflate")
 
 func (b *Builder) compress(data []byte) {
 	if b.enableCompression && len(data) > compressionThreshold {
@@ -167,6 +174,17 @@ func (b *Builder) compress(data []byte) {
 
 		encoding := acceptEncoding.Parse(b.r.Header.Get("Accept-Encoding"))
 		switch encoding {
+		case "zstd":
+			b.headers.Set("Content-Encoding", "zstd")
+			b.writeHeaders()
+
+			zstdWriter := zstdWriterPool.Get().(*zstd.Encoder)
+			zstdWriter.Reset(b.w)
+			zstdWriter.Write(data)
+			zstdWriter.Close()
+			zstdWriter.Reset(io.Discard)
+			zstdWriterPool.Put(zstdWriter)
+			return
 		case "br":
 			b.headers.Set("Content-Encoding", "br")
 			b.writeHeaders()
