@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/klauspost/compress/zstd"
 )
 
 const compressionThreshold = 1024
@@ -40,6 +41,12 @@ var (
 	flateWriterPool = sync.Pool{
 		New: func() any {
 			w, _ := flate.NewWriter(io.Discard, flate.DefaultCompression)
+			return w
+		},
+	}
+	zstdWriterPool = sync.Pool{
+		New: func() any {
+			w, _ := zstd.NewWriter(io.Discard)
 			return w
 		},
 	}
@@ -186,6 +193,9 @@ func (b *Builder) Write() {
 		// [HTTP Semantics]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Encoding.
 		HTMLNotAcceptable(b.w, cloned)
 		return
+	case zstdEncoding:
+		b.headers.Set("Content-Encoding", zstdEncoding)
+		wc, cancel = pooledWriter(&zstdWriterPool, b.w)
 	case brotliEncoding:
 		b.headers.Set("Content-Encoding", brotliEncoding)
 		wc, cancel = pooledWriter(&brotliWriterPool, b.w)
@@ -230,6 +240,7 @@ func (b *Builder) writeHeaders() {
 }
 
 const (
+	zstdEncoding     = "zstd"
 	brotliEncoding   = "br"
 	gzipEncoding     = "gzip"
 	deflateEncoding  = "deflate"
@@ -237,6 +248,7 @@ const (
 )
 
 var acceptEncoding = AcceptEncoding(
+	zstdEncoding,
 	brotliEncoding,
 	gzipEncoding,
 	deflateEncoding,
