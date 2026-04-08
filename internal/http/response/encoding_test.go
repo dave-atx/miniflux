@@ -155,7 +155,7 @@ func BenchmarkAcceptEncoding(b *testing.B) {
 	encoding := "identity;q=0,gzip,whatever"
 	expected := "gzip"
 
-	parser := AcceptEncoding("br", "gzip", "deflate")
+	parser := AcceptEncoding("zstd", "br", "gzip", "deflate")
 
 	for b.Loop() {
 		got := parser.Parse(encoding)
