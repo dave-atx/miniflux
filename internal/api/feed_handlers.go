@@ -113,7 +113,7 @@ func (h *handler) updateFeedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := request.UserID(r)
-	originalFeed, err := h.store.FeedByID(userID, feedID)
+	originalFeed, err := h.store.FeedByID(userID, feedID, nil)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return
@@ -136,7 +136,7 @@ func (h *handler) updateFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	originalFeed, err = h.store.FeedByID(userID, feedID)
+	originalFeed, err = h.store.FeedByID(userID, feedID, nil)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return
@@ -187,23 +187,47 @@ func (h *handler) getCategoryFeedsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	feeds, err := h.store.FeedsByCategoryWithCounters(userID, categoryID)
+	fields, err := fieldSetFromRequest(r, model.FeedFields)
+	if err != nil {
+		response.JSONBadRequest(w, r, err)
+		return
+	}
+
+	feeds, err := h.store.FeedsByCategoryWithCounters(userID, categoryID, fields)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return
 	}
 
-	response.JSON(w, r, feeds)
+	filtered, err := fields.FilterJSON(feeds)
+	if err != nil {
+		response.JSONServerError(w, r, err)
+		return
+	}
+
+	response.JSON(w, r, filtered)
 }
 
 func (h *handler) getFeedsHandler(w http.ResponseWriter, r *http.Request) {
-	feeds, err := h.store.Feeds(request.UserID(r))
+	fields, err := fieldSetFromRequest(r, model.FeedFields)
+	if err != nil {
+		response.JSONBadRequest(w, r, err)
+		return
+	}
+
+	feeds, err := h.store.Feeds(request.UserID(r), fields)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return
 	}
 
-	response.JSON(w, r, feeds)
+	filtered, err := fields.FilterJSON(feeds)
+	if err != nil {
+		response.JSONServerError(w, r, err)
+		return
+	}
+
+	response.JSON(w, r, filtered)
 }
 
 func (h *handler) fetchCountersHandler(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +247,13 @@ func (h *handler) getFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feed, err := h.store.FeedByID(request.UserID(r), feedID)
+	fields, err := fieldSetFromRequest(r, model.FeedFields)
+	if err != nil {
+		response.JSONBadRequest(w, r, err)
+		return
+	}
+
+	feed, err := h.store.FeedByID(request.UserID(r), feedID, fields)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return
@@ -234,7 +264,13 @@ func (h *handler) getFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, r, feed)
+	filtered, err := fields.FilterJSON(feed)
+	if err != nil {
+		response.JSONServerError(w, r, err)
+		return
+	}
+
+	response.JSON(w, r, filtered)
 }
 
 func (h *handler) removeFeedHandler(w http.ResponseWriter, r *http.Request) {

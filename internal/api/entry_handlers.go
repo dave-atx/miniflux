@@ -24,8 +24,14 @@ import (
 	"miniflux.app/v2/internal/validator"
 )
 
-func (h *handler) getEntryFromBuilder(w http.ResponseWriter, r *http.Request, b *storage.EntryQueryBuilder) {
-	entry, err := b.GetEntry()
+// fieldSetFromRequest parses the "fields" query parameter against allowed,
+// returning a nil FieldSet (select everything) when the parameter is absent.
+func fieldSetFromRequest(r *http.Request, allowed model.FieldSet) (model.FieldSet, error) {
+	return model.ParseFieldSet(request.QueryStringParam(r, "fields", ""), allowed)
+}
+
+func (h *handler) getEntryFromBuilder(w http.ResponseWriter, r *http.Request, b *storage.EntryQueryBuilder, fields model.FieldSet) {
+	entry, err := b.WithFields(fields).GetEntry()
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return
@@ -39,7 +45,13 @@ func (h *handler) getEntryFromBuilder(w http.ResponseWriter, r *http.Request, b 
 	entry.Content = mediaproxy.RewriteDocumentWithAbsoluteProxyURL(entry.Content)
 	entry.Enclosures.ProxifyEnclosureURL(config.Opts.MediaProxyMode(), config.Opts.MediaProxyResourceTypes())
 
-	response.JSON(w, r, entry)
+	filtered, err := fields.FilterJSON(entry)
+	if err != nil {
+		response.JSONServerError(w, r, err)
+		return
+	}
+
+	response.JSON(w, r, filtered)
 }
 
 func (h *handler) getFeedEntryHandler(w http.ResponseWriter, r *http.Request) {
@@ -55,11 +67,17 @@ func (h *handler) getFeedEntryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fields, err := fieldSetFromRequest(r, model.EntryFields)
+	if err != nil {
+		response.JSONBadRequest(w, r, err)
+		return
+	}
+
 	builder := h.store.NewEntryQueryBuilder(request.UserID(r)).
 		WithFeedID(feedID).
 		WithEntryIDs(entryID)
 
-	h.getEntryFromBuilder(w, r, builder)
+	h.getEntryFromBuilder(w, r, builder, fields)
 }
 
 func (h *handler) getCategoryEntryHandler(w http.ResponseWriter, r *http.Request) {
@@ -75,11 +93,17 @@ func (h *handler) getCategoryEntryHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	fields, err := fieldSetFromRequest(r, model.EntryFields)
+	if err != nil {
+		response.JSONBadRequest(w, r, err)
+		return
+	}
+
 	builder := h.store.NewEntryQueryBuilder(request.UserID(r)).
 		WithCategoryID(categoryID).
 		WithEntryIDs(entryID)
 
-	h.getEntryFromBuilder(w, r, builder)
+	h.getEntryFromBuilder(w, r, builder, fields)
 }
 
 func (h *handler) getEntryHandler(w http.ResponseWriter, r *http.Request) {
@@ -89,10 +113,16 @@ func (h *handler) getEntryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fields, err := fieldSetFromRequest(r, model.EntryFields)
+	if err != nil {
+		response.JSONBadRequest(w, r, err)
+		return
+	}
+
 	builder := h.store.NewEntryQueryBuilder(request.UserID(r)).
 		WithEntryIDs(entryID)
 
-	h.getEntryFromBuilder(w, r, builder)
+	h.getEntryFromBuilder(w, r, builder, fields)
 }
 
 func (h *handler) getFeedEntriesHandler(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +191,12 @@ func (h *handler) findEntries(w http.ResponseWriter, r *http.Request, feedID int
 
 	tags := request.QueryStringParamList(r, "tags")
 
+	fields, err := fieldSetFromRequest(r, model.EntryFields)
+	if err != nil {
+		response.JSONBadRequest(w, r, err)
+		return
+	}
+
 	builder := h.store.NewEntryQueryBuilder(userID).
 		WithFeedID(feedID).
 		WithCategoryID(categoryID).
@@ -169,7 +205,8 @@ func (h *handler) findEntries(w http.ResponseWriter, r *http.Request, feedID int
 		WithOffset(offset).
 		WithLimit(limit).
 		WithTags(tags...).
-		WithEnclosures()
+		WithEnclosures().
+		WithFields(fields)
 
 	if request.HasQueryParam(r, "globally_visible") {
 		globallyVisible := request.QueryBoolParam(r, "globally_visible", true)
@@ -192,7 +229,13 @@ func (h *handler) findEntries(w http.ResponseWriter, r *http.Request, feedID int
 		entries[i].Enclosures.ProxifyEnclosureURL(config.Opts.MediaProxyMode(), config.Opts.MediaProxyResourceTypes())
 	}
 
-	response.JSON(w, r, &entriesResponse{Total: count, Entries: entries})
+	filteredEntries, err := fields.FilterJSON(entries)
+	if err != nil {
+		response.JSONServerError(w, r, err)
+		return
+	}
+
+	response.JSON(w, r, &entriesResponse{Total: count, Entries: filteredEntries})
 }
 
 func (h *handler) setEntryStatusAndStarredHandler(w http.ResponseWriter, r *http.Request) {
