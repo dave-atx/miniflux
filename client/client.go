@@ -1302,6 +1302,10 @@ func buildFilterQueryString(path string, filter *Filter) string {
 			values.Add("tags", tag)
 		}
 
+		if len(filter.Fields) > 0 {
+			values.Set("fields", strings.Join(filter.Fields, ","))
+		}
+
 		path = fmt.Sprintf("%s?%s", path, values.Encode())
 	}
 
