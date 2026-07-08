@@ -21,7 +21,7 @@ func (h *handler) showEditFeedPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	feedID := request.RouteInt64Param(r, "feedID")
-	feed, err := h.store.FeedByID(user.ID, feedID)
+	feed, err := h.store.FeedByID(user.ID, feedID, nil)
 	if err != nil {
 		response.HTMLServerError(w, r, err)
 		return

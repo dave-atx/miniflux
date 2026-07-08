@@ -26,6 +26,13 @@ type feedQueryBuilder struct {
 	counterJoinFeeds  bool
 	counterArgs       []any
 	counterConditions []string
+	fieldSet          model.FieldSet
+}
+
+// WithFields restricts which columns are fetched; see model.FieldSet.
+func (f *feedQueryBuilder) WithFields(fields model.FieldSet) *feedQueryBuilder {
+	f.fieldSet = fields
+	return f
 }
 
 // NewFeedQueryBuilder returns a new FeedQueryBuilder.
@@ -137,55 +144,59 @@ func (f *feedQueryBuilder) GetFeed() (*model.Feed, error) {
 
 // GetFeeds returns a list of feeds that match the condition.
 func (f *feedQueryBuilder) GetFeeds() (model.Feeds, error) {
+	// Columns not going through fieldColumn must always be fetched: they are
+	// either used by post-scan code, ORDER BY targets, or sort keys used by
+	// byStateAndName (disabled, parsing_error_count, title).
+	fs := f.fieldSet
 	query := `
 		SELECT
 			f.id,
-			f.feed_url,
-			f.site_url,
+			` + fieldColumn(fs, "feed_url", "f.feed_url", "''") + `,
+			` + fieldColumn(fs, "site_url", "f.site_url", "''") + `,
 			f.title,
-			f.description,
-			f.language,
-			f.etag_header,
-			f.last_modified_header,
+			` + fieldColumn(fs, "description", "f.description", "''") + `,
+			` + fieldColumn(fs, "language", "f.language", "''") + `,
+			` + fieldColumn(fs, "etag_header", "f.etag_header", "''") + `,
+			` + fieldColumn(fs, "last_modified_header", "f.last_modified_header", "''") + `,
 			f.user_id,
-			f.checked_at at time zone u.timezone,
-			f.next_check_at at time zone u.timezone,
+			` + fieldColumn(fs, "checked_at", "f.checked_at at time zone u.timezone", "'0001-01-01'::timestamp") + `,
+			` + fieldColumn(fs, "next_check_at", "f.next_check_at at time zone u.timezone", "'0001-01-01'::timestamp") + `,
 			f.parsing_error_count,
-			f.parsing_error_msg,
-			f.scraper_rules,
-			f.rewrite_rules,
-			f.url_rewrite_rules,
-			f.blocklist_rules,
-			f.keeplist_rules,
-			f.block_filter_entry_rules,
-			f.keep_filter_entry_rules,
-			f.crawler,
-			f.user_agent,
-			f.cookie,
-			f.username,
-			f.password,
-			f.ignore_http_cache,
-			f.allow_self_signed_certificates,
-			f.fetch_via_proxy,
+			` + fieldColumn(fs, "parsing_error_message", "f.parsing_error_msg", "''") + `,
+			` + fieldColumn(fs, "scraper_rules", "f.scraper_rules", "''") + `,
+			` + fieldColumn(fs, "rewrite_rules", "f.rewrite_rules", "''") + `,
+			` + fieldColumn(fs, "urlrewrite_rules", "f.url_rewrite_rules", "''") + `,
+			` + fieldColumn(fs, "blocklist_rules", "f.blocklist_rules", "''") + `,
+			` + fieldColumn(fs, "keeplist_rules", "f.keeplist_rules", "''") + `,
+			` + fieldColumn(fs, "block_filter_entry_rules", "f.block_filter_entry_rules", "''") + `,
+			` + fieldColumn(fs, "keep_filter_entry_rules", "f.keep_filter_entry_rules", "''") + `,
+			` + fieldColumn(fs, "crawler", "f.crawler", "false") + `,
+			` + fieldColumn(fs, "user_agent", "f.user_agent", "''") + `,
+			` + fieldColumn(fs, "cookie", "f.cookie", "''") + `,
+			` + fieldColumn(fs, "username", "f.username", "''") + `,
+			` + fieldColumn(fs, "password", "f.password", "''") + `,
+			` + fieldColumn(fs, "ignore_http_cache", "f.ignore_http_cache", "false") + `,
+			` + fieldColumn(fs, "allow_self_signed_certificates", "f.allow_self_signed_certificates", "false") + `,
+			` + fieldColumn(fs, "fetch_via_proxy", "f.fetch_via_proxy", "false") + `,
 			f.disabled,
-			f.no_media_player,
-			f.hide_globally,
+			` + fieldColumn(fs, "no_media_player", "f.no_media_player", "false") + `,
+			` + fieldColumn(fs, "hide_globally", "f.hide_globally", "false") + `,
 			f.category_id,
 			c.title as category_title,
-			c.hide_globally as category_hidden,
-			fi.icon_id,
-			i.external_id,
+			` + fieldColumn(fs, "category", "c.hide_globally as category_hidden", "false") + `,
+			` + fieldColumn(fs, "icon", "fi.icon_id", "NULL::bigint") + `,
+			` + fieldColumn(fs, "icon", "i.external_id", "NULL::text") + `,
 			u.timezone,
-			f.apprise_service_urls,
-			f.webhook_url,
-			f.disable_http2,
-			f.ntfy_enabled,
-			f.ntfy_priority,
-			f.ntfy_topic,
-			f.pushover_enabled,
-			f.pushover_priority,
-			f.proxy_url,
-			f.ignore_entry_updates
+			` + fieldColumn(fs, "apprise_service_urls", "f.apprise_service_urls", "''") + `,
+			` + fieldColumn(fs, "webhook_url", "f.webhook_url", "''") + `,
+			` + fieldColumn(fs, "disable_http2", "f.disable_http2", "false") + `,
+			` + fieldColumn(fs, "ntfy_enabled", "f.ntfy_enabled", "false") + `,
+			` + fieldColumn(fs, "ntfy_priority", "f.ntfy_priority", "0") + `,
+			` + fieldColumn(fs, "ntfy_topic", "f.ntfy_topic", "''") + `,
+			` + fieldColumn(fs, "pushover_enabled", "f.pushover_enabled", "false") + `,
+			` + fieldColumn(fs, "pushover_priority", "f.pushover_priority", "0") + `,
+			` + fieldColumn(fs, "proxy_url", "f.proxy_url", "''") + `,
+			` + fieldColumn(fs, "ignore_entry_updates", "f.ignore_entry_updates", "false") + `
 		FROM
 			feeds f
 		LEFT JOIN
