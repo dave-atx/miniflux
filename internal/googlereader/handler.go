@@ -396,7 +396,7 @@ func getFeed(stream Stream, store *storage.Storage, userID int64) (*model.Feed, 
 	if err != nil {
 		return nil, err
 	}
-	return store.FeedByID(userID, feedID)
+	return store.FeedByID(userID, feedID, nil)
 }
 
 func getOrCreateCategory(streamCategory Stream, store *storage.Storage, userID int64) (*model.Category, error) {
@@ -893,7 +893,7 @@ func (h *greaderHandler) subscriptionListHandler(w http.ResponseWriter, r *http.
 	}
 
 	var result subscriptionsResponse
-	feeds, err := h.store.Feeds(userID)
+	feeds, err := h.store.Feeds(userID, nil)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return

@@ -5,11 +5,14 @@ package api // import "miniflux.app/v2/internal/api"
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 
@@ -59,6 +62,91 @@ func (c *integrationTestConfig) isConfigured() bool {
 
 func (c *integrationTestConfig) genRandomUsername() string {
 	return fmt.Sprintf("%s_%10d", c.testRegularUsername, rand.Int())
+}
+
+// apiBaseURL mirrors how miniflux.NewClientWithOptions normalizes the
+// endpoint (trim a trailing slash and a redundant "/v1" suffix), so raw HTTP
+// requests built directly in tests hit the same base URL as the typed
+// client.
+func apiBaseURL(testConfig *integrationTestConfig) string {
+	baseURL := strings.TrimSuffix(testConfig.testBaseURL, "/")
+	return strings.TrimSuffix(baseURL, "/v1")
+}
+
+// rawAPIGet performs a raw HTTP GET (bypassing the typed client) against
+// path, which must start with "/v1", authenticating with HTTP basic auth.
+// It is used by fieldset tests that need to inspect the exact set of JSON
+// keys returned by the server, which the typed client's structs cannot
+// reveal since unrequested fields simply unmarshal as zero values.
+func rawAPIGet(t *testing.T, testConfig *integrationTestConfig, username, password, path string) (int, []byte) {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodGet, apiBaseURL(testConfig)+path, nil)
+	if err != nil {
+		t.Fatalf(`Unable to create request for %q: %v`, path, err)
+	}
+	req.SetBasicAuth(username, password)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf(`Unable to perform request for %q: %v`, path, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf(`Unable to read response body for %q: %v`, path, err)
+	}
+
+	return resp.StatusCode, body
+}
+
+// rawEntriesEnvelope decodes the `{"total": ..., "entries": [...]}` envelope
+// without assuming anything about the shape of each entry, so fieldset
+// pruning can be inspected key-by-key.
+type rawEntriesEnvelope struct {
+	Total   int               `json:"total"`
+	Entries []json.RawMessage `json:"entries"`
+}
+
+// jsonObjectKeys decodes raw as a JSON object, keeping each value as
+// json.RawMessage so callers can assert on the key set and recurse into
+// nested objects.
+func jsonObjectKeys(t *testing.T, raw json.RawMessage) map[string]json.RawMessage {
+	t.Helper()
+
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		t.Fatalf(`Unable to decode JSON object %s: %v`, raw, err)
+	}
+
+	return obj
+}
+
+// assertOnlyKeys fails the test unless obj contains exactly expectedKeys,
+// no more and no fewer, which is how fieldset pruning is verified at the
+// JSON level (client structs zero-fill missing fields, hiding omissions).
+func assertOnlyKeys(t *testing.T, obj map[string]json.RawMessage, expectedKeys ...string) {
+	t.Helper()
+
+	if len(obj) != len(expectedKeys) {
+		t.Fatalf(`Expected exactly the keys %v, got %v`, expectedKeys, sortedObjectKeys(obj))
+	}
+
+	for _, key := range expectedKeys {
+		if _, ok := obj[key]; !ok {
+			t.Fatalf(`Expected key %q to be present, got keys %v`, key, sortedObjectKeys(obj))
+		}
+	}
+}
+
+func sortedObjectKeys(obj map[string]json.RawMessage) []string {
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func TestIncorrectEndpoint(t *testing.T) {
@@ -2166,6 +2254,164 @@ func TestGetCategoryFeedsEndpoint(t *testing.T) {
 	}
 }
 
+func TestGetFeedsEndpointWithFields(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	category, err := regularUserClient.CreateCategory("My category")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL:    testConfig.testFeedURL,
+		CategoryID: category.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	status, body := rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, "/v1/feeds?fields=id,title,category.title")
+	if status != http.StatusOK {
+		t.Fatalf(`Expected status 200, got %d: %s`, status, body)
+	}
+
+	var feeds []json.RawMessage
+	if err := json.Unmarshal(body, &feeds); err != nil {
+		t.Fatalf(`Unable to decode feeds response: %v`, err)
+	}
+
+	if len(feeds) == 0 {
+		t.Fatal(`Expected at least one feed`)
+	}
+
+	for _, raw := range feeds {
+		obj := jsonObjectKeys(t, raw)
+		assertOnlyKeys(t, obj, "id", "title", "category")
+
+		categoryObj := jsonObjectKeys(t, obj["category"])
+		assertOnlyKeys(t, categoryObj, "title")
+	}
+
+	// The category-scoped feeds listing goes through a different storage
+	// method (FeedsByCategoryWithCounters) but shares the same fieldset
+	// plumbing, so it must prune identically.
+	status, body = rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, fmt.Sprintf("/v1/categories/%d/feeds?fields=id,title,category.title", category.ID))
+	if status != http.StatusOK {
+		t.Fatalf(`Expected status 200, got %d: %s`, status, body)
+	}
+
+	var categoryFeeds []json.RawMessage
+	if err := json.Unmarshal(body, &categoryFeeds); err != nil {
+		t.Fatalf(`Unable to decode category feeds response: %v`, err)
+	}
+
+	if len(categoryFeeds) == 0 {
+		t.Fatal(`Expected at least one feed`)
+	}
+
+	for _, raw := range categoryFeeds {
+		obj := jsonObjectKeys(t, raw)
+		assertOnlyKeys(t, obj, "id", "title", "category")
+
+		categoryObj := jsonObjectKeys(t, obj["category"])
+		assertOnlyKeys(t, categoryObj, "title")
+	}
+}
+
+func TestGetFeedEndpointWithFields(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	feedID, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL: testConfig.testFeedURL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	status, body := rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, fmt.Sprintf("/v1/feeds/%d?fields=id,title,site_url", feedID))
+	if status != http.StatusOK {
+		t.Fatalf(`Expected status 200, got %d: %s`, status, body)
+	}
+
+	obj := jsonObjectKeys(t, body)
+	assertOnlyKeys(t, obj, "id", "title", "site_url")
+}
+
+func TestFeedsFieldsetInvalidFieldNameReturns400(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	category, err := regularUserClient.CreateCategory("My category")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	feedID, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL:    testConfig.testFeedURL,
+		CategoryID: category.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// "bogus" is not a Feed field at all; "category.title.bogus" is a valid
+	// parent ("category") but nests two dots deep, which the spec forbids.
+	invalidFieldNames := []string{"bogus", "category.title.bogus"}
+
+	pathTemplates := []string{
+		"/v1/feeds?fields=%s",
+		fmt.Sprintf("/v1/categories/%d/feeds?fields=%%s", category.ID),
+		fmt.Sprintf("/v1/feeds/%d?fields=%%s", feedID),
+	}
+
+	for _, invalidField := range invalidFieldNames {
+		for _, pathTemplate := range pathTemplates {
+			path := fmt.Sprintf(pathTemplate, invalidField)
+			status, body := rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, path)
+			if status != http.StatusBadRequest {
+				t.Fatalf(`Expected status 400 for %s, got %d: %s`, path, status, body)
+			}
+		}
+	}
+}
+
 func TestExportEndpoint(t *testing.T) {
 	t.Parallel()
 
@@ -2660,6 +2906,320 @@ func TestGetEnclosureEndpoint(t *testing.T) {
 
 	if _, err = regularUserClient.Enclosure(99999); err == nil {
 		t.Fatalf(`Fetching an inexisting enclosure should raise an error`)
+	}
+}
+
+func TestGetEntriesEndpointWithFields(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	if _, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL: testConfig.testFeedURL,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use an explicit, stable order so both requests below see entries in
+	// the same sequence and can be compared index by index.
+	unfiltered, err := regularUserClient.Entries(&miniflux.Filter{Order: "id", Direction: "asc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(unfiltered.Entries) == 0 {
+		t.Fatal(`Expected at least one entry`)
+	}
+
+	filtered, err := regularUserClient.Entries(&miniflux.Filter{
+		Order:     "id",
+		Direction: "asc",
+		Fields:    []string{"id", "title", "feed.title"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if filtered.Total != unfiltered.Total {
+		t.Fatalf(`Expected total %d, got %d`, unfiltered.Total, filtered.Total)
+	}
+
+	if len(filtered.Entries) != len(unfiltered.Entries) {
+		t.Fatalf(`Expected %d entries, got %d`, len(unfiltered.Entries), len(filtered.Entries))
+	}
+
+	for i, entry := range filtered.Entries {
+		if entry.ID != unfiltered.Entries[i].ID {
+			t.Fatalf(`Entry %d: expected ID %d, got %d`, i, unfiltered.Entries[i].ID, entry.ID)
+		}
+
+		if entry.Title != unfiltered.Entries[i].Title {
+			t.Fatalf(`Entry %d: expected title %q, got %q`, i, unfiltered.Entries[i].Title, entry.Title)
+		}
+
+		if entry.Feed == nil || entry.Feed.Title != unfiltered.Entries[i].Feed.Title {
+			t.Fatalf(`Entry %d: expected feed title %q, got %v`, i, unfiltered.Entries[i].Feed.Title, entry.Feed)
+		}
+	}
+
+	// Raw HTTP check: each returned entry object must contain exactly the
+	// requested top-level keys, and the nested "feed" object must contain
+	// exactly its own requested sub-key. Client structs zero-fill missing
+	// fields, so this cannot be verified through the typed client above.
+	status, body := rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, "/v1/entries?order=id&direction=asc&fields=id,title,feed.title")
+	if status != http.StatusOK {
+		t.Fatalf(`Expected status 200, got %d: %s`, status, body)
+	}
+
+	var envelope rawEntriesEnvelope
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		t.Fatalf(`Unable to decode entries response: %v`, err)
+	}
+
+	if envelope.Total != unfiltered.Total {
+		t.Fatalf(`Expected total %d in raw response, got %d`, unfiltered.Total, envelope.Total)
+	}
+
+	if len(envelope.Entries) == 0 {
+		t.Fatal(`Expected at least one entry in raw response`)
+	}
+
+	for _, raw := range envelope.Entries {
+		obj := jsonObjectKeys(t, raw)
+		assertOnlyKeys(t, obj, "id", "title", "feed")
+
+		feedObj := jsonObjectKeys(t, obj["feed"])
+		assertOnlyKeys(t, feedObj, "title")
+	}
+}
+
+func TestGetEntriesEndpointFieldsExcludeContentAndEnclosures(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	if _, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL: testConfig.testFeedURL,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	status, body := rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, "/v1/entries?fields=id")
+	if status != http.StatusOK {
+		t.Fatalf(`Expected status 200, got %d: %s`, status, body)
+	}
+
+	var envelope rawEntriesEnvelope
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		t.Fatalf(`Unable to decode entries response: %v`, err)
+	}
+
+	if len(envelope.Entries) == 0 {
+		t.Fatal(`Expected at least one entry`)
+	}
+
+	for _, raw := range envelope.Entries {
+		obj := jsonObjectKeys(t, raw)
+
+		// fields=id must exclude every other field, including the
+		// potentially large "content" and "enclosures" columns that the
+		// fieldset feature exists to let PostgreSQL skip reading.
+		assertOnlyKeys(t, obj, "id")
+
+		if _, ok := obj["content"]; ok {
+			t.Fatal(`Expected "content" to be excluded when fields=id`)
+		}
+
+		if _, ok := obj["enclosures"]; ok {
+			t.Fatal(`Expected "enclosures" to be excluded when fields=id`)
+		}
+	}
+}
+
+func TestGetEntryEndpointWithFields(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	feedID, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL: testConfig.testFeedURL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := regularUserClient.FeedEntries(feedID, &miniflux.Filter{Limit: 1})
+	if err != nil {
+		t.Fatalf(`Failed to get entries: %v`, err)
+	}
+
+	if len(result.Entries) == 0 {
+		t.Fatal(`Expected at least one entry`)
+	}
+
+	entryID := result.Entries[0].ID
+
+	status, body := rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, fmt.Sprintf("/v1/entries/%d?fields=id,title,feed.title", entryID))
+	if status != http.StatusOK {
+		t.Fatalf(`Expected status 200, got %d: %s`, status, body)
+	}
+
+	obj := jsonObjectKeys(t, body)
+	assertOnlyKeys(t, obj, "id", "title", "feed")
+
+	feedObj := jsonObjectKeys(t, obj["feed"])
+	assertOnlyKeys(t, feedObj, "title")
+}
+
+func TestEntriesFieldsetInvalidFieldNameReturns400(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	feedID, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL: testConfig.testFeedURL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := regularUserClient.FeedEntries(feedID, &miniflux.Filter{Limit: 1})
+	if err != nil {
+		t.Fatalf(`Failed to get entries: %v`, err)
+	}
+
+	if len(result.Entries) == 0 {
+		t.Fatal(`Expected at least one entry`)
+	}
+
+	entryID := result.Entries[0].ID
+	categoryID := result.Entries[0].Feed.Category.ID
+
+	// "bogus" is not an Entry field at all; "feed.category.title" nests two
+	// dots deep (feed -> category -> title), which the spec forbids: a
+	// dotted fieldset element may only reach one level into a nested object.
+	invalidFieldNames := []string{"bogus", "feed.category.title"}
+
+	pathTemplates := []string{
+		"/v1/entries?fields=%s",
+		fmt.Sprintf("/v1/feeds/%d/entries?fields=%%s", feedID),
+		fmt.Sprintf("/v1/categories/%d/entries?fields=%%s", categoryID),
+		fmt.Sprintf("/v1/entries/%d?fields=%%s", entryID),
+		fmt.Sprintf("/v1/feeds/%d/entries/%d?fields=%%s", feedID, entryID),
+		fmt.Sprintf("/v1/categories/%d/entries/%d?fields=%%s", categoryID, entryID),
+	}
+
+	for _, invalidField := range invalidFieldNames {
+		for _, pathTemplate := range pathTemplates {
+			path := fmt.Sprintf(pathTemplate, invalidField)
+			status, body := rawAPIGet(t, testConfig, regularTestUser.Username, testConfig.testRegularPassword, path)
+			if status != http.StatusBadRequest {
+				t.Fatalf(`Expected status 400 for %s, got %d: %s`, path, status, body)
+			}
+		}
+	}
+}
+
+func TestGetEntriesEndpointFieldsWithSorting(t *testing.T) {
+	testConfig := newIntegrationTestConfig()
+	if !testConfig.isConfigured() {
+		t.Skip(skipIntegrationTestsMessage)
+	}
+
+	adminClient := miniflux.NewClient(testConfig.testBaseURL, testConfig.testAdminUsername, testConfig.testAdminPassword)
+
+	regularTestUser, err := adminClient.CreateUser(testConfig.genRandomUsername(), testConfig.testRegularPassword, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.DeleteUser(regularTestUser.ID)
+
+	regularUserClient := miniflux.NewClient(testConfig.testBaseURL, regularTestUser.Username, testConfig.testRegularPassword)
+
+	if _, err := regularUserClient.CreateFeed(&miniflux.FeedCreationRequest{
+		FeedURL: testConfig.testFeedURL,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sorting by category_title exercises the ORDER BY / SELECT alias
+	// interaction the fieldset feature has to preserve: category_title must
+	// remain a legal sort target (and stay unaliased-conflict-free) even
+	// when the requested fieldset omits it from the response.
+	byCategory, err := regularUserClient.Entries(&miniflux.Filter{
+		Fields:    []string{"id", "title"},
+		Order:     "category_title",
+		Direction: "asc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(byCategory.Entries) == 0 {
+		t.Fatal(`Expected at least one entry`)
+	}
+
+	byTitle, err := regularUserClient.Entries(&miniflux.Filter{
+		Fields:    []string{"id", "title"},
+		Order:     "title",
+		Direction: "asc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(byTitle.Entries) == 0 {
+		t.Fatal(`Expected at least one entry`)
+	}
+
+	for i := 1; i < len(byTitle.Entries); i++ {
+		if byTitle.Entries[i-1].Title > byTitle.Entries[i].Title {
+			t.Fatalf(`Entries not sorted by title ascending: %q came before %q`, byTitle.Entries[i-1].Title, byTitle.Entries[i].Title)
+		}
 	}
 }
 

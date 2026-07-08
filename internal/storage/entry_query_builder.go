@@ -26,6 +26,23 @@ type EntryQueryBuilder struct {
 	offset          int
 	fetchEnclosures bool
 	excludeContent  bool
+	fieldSet        model.FieldSet
+}
+
+// WithFields restricts which columns are fetched; see model.FieldSet.
+func (e *EntryQueryBuilder) WithFields(fields model.FieldSet) *EntryQueryBuilder {
+	e.fieldSet = fields
+	return e
+}
+
+// fieldColumn returns expr when the field is selected, otherwise a typed
+// constant that keeps the positional Scan layout intact while letting
+// PostgreSQL skip reading the column.
+func fieldColumn(fs model.FieldSet, path, expr, zero string) string {
+	if fs.Has(path) {
+		return expr
+	}
+	return zero
 }
 
 // WithEnclosures fetches enclosures for each entry.
@@ -258,9 +275,11 @@ func (e *EntryQueryBuilder) GetEntry() (*model.Entry, error) {
 		return nil, nil
 	}
 
-	entries[0].Enclosures, err = e.store.EnclosuresByEntryID(entries[0].ID)
-	if err != nil {
-		return nil, err
+	if e.fieldSet.Has("enclosures") {
+		entries[0].Enclosures, err = e.store.EnclosuresByEntryID(entries[0].ID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return entries[0], nil
@@ -288,46 +307,50 @@ func (e *EntryQueryBuilder) fetchEntries(withCount bool) (model.Entries, int, er
 		countColumn = "count(*) OVER(),"
 	}
 
+	// Columns not going through fieldColumn must always be fetched: they are
+	// either used by post-scan code below or are ORDER BY targets (sorting by
+	// "title" or "category_title" resolves against the SELECT output columns).
+	fs := e.fieldSet
 	query := `
 		SELECT
 			` + countColumn + `
 			e.id,
 			e.user_id,
 			e.feed_id,
-			e.hash,
+			` + fieldColumn(fs, "hash", "e.hash", "''") + `,
 			e.published_at at time zone u.timezone,
 			e.title,
-			e.url,
-			e.comments_url,
+			` + fieldColumn(fs, "url", "e.url", "''") + `,
+			` + fieldColumn(fs, "comments_url", "e.comments_url", "''") + `,
 			e.author,
-			e.share_code,
+			` + fieldColumn(fs, "share_code", "e.share_code", "''") + `,
 			` + e.contentColumn() + `,
 			e.status,
-			e.starred,
-			e.reading_time,
+			` + fieldColumn(fs, "starred", "e.starred", "false") + `,
+			` + fieldColumn(fs, "reading_time", "e.reading_time", "0") + `,
 			e.created_at,
 			e.changed_at,
-			e.tags,
-			e.language,
-			f.title as feed_title,
-			f.feed_url,
-			f.site_url,
-			f.description,
-			f.language,
-			f.checked_at,
+			` + fieldColumn(fs, "tags", "e.tags", "'{}'::text[]") + `,
+			` + fieldColumn(fs, "language", "e.language", "''") + `,
+			` + fieldColumn(fs, "feed.title", "f.title as feed_title", "''") + `,
+			` + fieldColumn(fs, "feed.feed_url", "f.feed_url", "''") + `,
+			` + fieldColumn(fs, "feed.site_url", "f.site_url", "''") + `,
+			` + fieldColumn(fs, "feed.description", "f.description", "''") + `,
+			` + fieldColumn(fs, "feed.language", "f.language", "''") + `,
+			` + fieldColumn(fs, "feed.checked_at", "f.checked_at", "'0001-01-01'::timestamptz") + `,
 			f.category_id,
 			c.title as category_title,
-			c.hide_globally as category_hidden,
-			f.scraper_rules,
-			f.rewrite_rules,
-			f.crawler,
-			f.user_agent,
-			f.cookie,
-			f.hide_globally,
-			f.no_media_player,
-			f.webhook_url,
-			fi.icon_id,
-			i.external_id AS icon_external_id,
+			` + fieldColumn(fs, "feed.category", "c.hide_globally as category_hidden", "false") + `,
+			` + fieldColumn(fs, "feed.scraper_rules", "f.scraper_rules", "''") + `,
+			` + fieldColumn(fs, "feed.rewrite_rules", "f.rewrite_rules", "''") + `,
+			` + fieldColumn(fs, "feed.crawler", "f.crawler", "false") + `,
+			` + fieldColumn(fs, "feed.user_agent", "f.user_agent", "''") + `,
+			` + fieldColumn(fs, "feed.cookie", "f.cookie", "''") + `,
+			` + fieldColumn(fs, "feed.hide_globally", "f.hide_globally", "false") + `,
+			` + fieldColumn(fs, "feed.no_media_player", "f.no_media_player", "false") + `,
+			` + fieldColumn(fs, "feed.webhook_url", "f.webhook_url", "''") + `,
+			` + fieldColumn(fs, "feed.icon", "fi.icon_id", "NULL::bigint") + `,
+			` + fieldColumn(fs, "feed.icon", "i.external_id AS icon_external_id", "NULL::text") + `,
 			u.timezone
 		FROM
 			entries e
@@ -436,7 +459,7 @@ func (e *EntryQueryBuilder) fetchEntries(withCount bool) (model.Entries, int, er
 		entryIDs = append(entryIDs, entry.ID)
 	}
 
-	if e.fetchEnclosures && len(entryIDs) > 0 {
+	if e.fetchEnclosures && e.fieldSet.Has("enclosures") && len(entryIDs) > 0 {
 		enclosures, err := e.store.EnclosuresByEntryIDs(entryIDs)
 		if err != nil {
 			return nil, 0, fmt.Errorf("store: unable to fetch enclosures: %w", err)
@@ -501,7 +524,7 @@ func (e *EntryQueryBuilder) GetEntryIDsWithCount() ([]int64, int, error) {
 }
 
 func (e *EntryQueryBuilder) contentColumn() string {
-	if e.excludeContent {
+	if e.excludeContent || !e.fieldSet.Has("content") {
 		return "'' AS content"
 	}
 	return "e.content"
