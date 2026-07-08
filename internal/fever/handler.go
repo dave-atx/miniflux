@@ -84,7 +84,7 @@ func (h *feverHandler) handleGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feeds, err := h.store.Feeds(userID)
+	feeds, err := h.store.Feeds(userID, nil)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return
@@ -130,7 +130,7 @@ func (h *feverHandler) handleFeeds(w http.ResponseWriter, r *http.Request) {
 		slog.Int64("user_id", userID),
 	)
 
-	feeds, err := h.store.Feeds(userID)
+	feeds, err := h.store.Feeds(userID, nil)
 	if err != nil {
 		response.JSONServerError(w, r, err)
 		return

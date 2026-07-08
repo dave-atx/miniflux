@@ -3,10 +3,6 @@
 
 package api // import "miniflux.app/v2/internal/api"
 
-import (
-	"miniflux.app/v2/internal/model"
-)
-
 type feedIconResponse struct {
 	ID       int64  `json:"id"`
 	MimeType string `json:"mime_type"`
@@ -14,8 +10,11 @@ type feedIconResponse struct {
 }
 
 type entriesResponse struct {
-	Total   int           `json:"total"`
-	Entries model.Entries `json:"entries"`
+	Total int `json:"total"`
+	// Entries is `any` rather than model.Entries because it may hold the
+	// result of FieldSet.FilterJSON (a pruned generic value) instead of the
+	// original slice when the "fields" query parameter is used.
+	Entries any `json:"entries"`
 }
 
 type integrationsStatusResponse struct {
