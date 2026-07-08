@@ -199,7 +199,7 @@ func RefreshFeed(store *storage.Storage, userID, feedID int64, forceRefresh bool
 		slog.Bool("force_refresh", forceRefresh),
 	)
 
-	originalFeed, storeErr := store.FeedByID(userID, feedID)
+	originalFeed, storeErr := store.FeedByID(userID, feedID, nil)
 	if storeErr != nil {
 		return locale.NewLocalizedErrorWrapper(storeErr, "error.database_error", storeErr)
 	}

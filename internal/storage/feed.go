@@ -124,10 +124,12 @@ func (s *Storage) CountAllFeedsWithErrors() (int, error) {
 	return result, nil
 }
 
-// Feeds returns all feeds that belong to the given user.
-func (s *Storage) Feeds(userID int64) (model.Feeds, error) {
+// Feeds returns all feeds that belong to the given user. A nil fields
+// selects every column; see model.FieldSet.
+func (s *Storage) Feeds(userID int64, fields model.FieldSet) (model.Feeds, error) {
 	return s.NewFeedQueryBuilder(userID).
 		WithSorting(model.DefaultFeedSorting, model.DefaultFeedSortingDirection).
+		WithFields(fields).
 		GetFeeds()
 }
 
@@ -157,11 +159,13 @@ func (s *Storage) FetchCounters(userID int64) (model.FeedCounters, error) {
 }
 
 // FeedsByCategoryWithCounters returns all feeds in the given category for the given user with read and unread entry counters.
-func (s *Storage) FeedsByCategoryWithCounters(userID, categoryID int64) (model.Feeds, error) {
+// A nil fields selects every column; see model.FieldSet.
+func (s *Storage) FeedsByCategoryWithCounters(userID, categoryID int64, fields model.FieldSet) (model.Feeds, error) {
 	return getFeedsSorted(s.NewFeedQueryBuilder(userID).
 		WithCategoryID(categoryID).
 		WithCounters().
-		WithSorting(model.DefaultFeedSorting, model.DefaultFeedSortingDirection))
+		WithSorting(model.DefaultFeedSorting, model.DefaultFeedSortingDirection).
+		WithFields(fields))
 }
 
 // WeeklyFeedEntryCount returns the weekly entry count for a feed.
@@ -196,10 +200,12 @@ func (s *Storage) WeeklyFeedEntryCount(userID, feedID int64) (int, error) {
 	return weeklyCount, nil
 }
 
-// FeedByID returns the feed with the given ID.
-func (s *Storage) FeedByID(userID, feedID int64) (*model.Feed, error) {
+// FeedByID returns the feed with the given ID. A nil fields selects every
+// column; see model.FieldSet.
+func (s *Storage) FeedByID(userID, feedID int64, fields model.FieldSet) (*model.Feed, error) {
 	feed, err := s.NewFeedQueryBuilder(userID).
 		WithFeedID(feedID).
+		WithFields(fields).
 		GetFeed()
 
 	switch {
