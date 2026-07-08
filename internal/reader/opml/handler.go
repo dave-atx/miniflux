@@ -19,7 +19,7 @@ type Handler struct {
 
 // Export exports user feeds to OPML.
 func (h *Handler) Export(userID int64) (string, error) {
-	feeds, err := h.store.Feeds(userID)
+	feeds, err := h.store.Feeds(userID, nil)
 	if err != nil {
 		return "", err
 	}
