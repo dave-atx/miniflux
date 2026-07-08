@@ -336,6 +336,9 @@ type Filter struct {
 	Statuses        []string
 	Tags            []string
 	GloballyVisible bool
+	// Fields optionally restricts which fields are returned, e.g.
+	// []string{"id", "title", "feed.title"}.
+	Fields []string
 }
 
 // EntryResultSet represents the response when fetching entries.

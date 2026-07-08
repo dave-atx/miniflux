@@ -23,7 +23,7 @@ func (h *handler) updateFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	feedID := request.RouteInt64Param(r, "feedID")
-	feed, err := h.store.FeedByID(loggedUser.ID, feedID)
+	feed, err := h.store.FeedByID(loggedUser.ID, feedID, nil)
 	if err != nil {
 		response.HTMLServerError(w, r, err)
 		return
