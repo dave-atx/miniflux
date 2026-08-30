@@ -8,8 +8,8 @@ processes = []
 
 [build]
   [build.args]
-    GO_VERSION = '1.26'
-    
+    GO_VERSION = '1.27'
+
 [metrics]
 port = 9091
 path = "/metrics"
