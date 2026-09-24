@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# mf: small Miniflux API helper for the feed-cleanup skill.
+#
+# Needs curl and jq, plus MINIFLUX_URL and MINIFLUX_API_KEY in the environment.
+# The preview subcommand also needs a Go toolchain and a Miniflux source
+# checkout that contains cmd/rewrite-preview (MINIFLUX_SRC, or the current
+# git repository).
+set -euo pipefail
+
+FIELDS=(rewrite_rules scraper_rules urlrewrite_rules block_filter_entry_rules keep_filter_entry_rules crawler)
+
+usage() {
+	cat <<'USAGE'
+usage: mf <command> [args]
+
+  version                    server version and commit
+  feeds                      every feed: id, title, site/feed URL, crawler, which rule fields are set
+  feed ID                    one feed's rule fields
+  entry ID                   one entry: id, feed_id, title, url
+  get PATH                   raw GET, e.g. mf get '/v1/entries?feed_id=4&limit=1'
+  preview ID [flags...]      run cmd/rewrite-preview against feed ID (extra flags passed through)
+  apply ID DIR [--dry-run]   PUT the rule fields that have a file in DIR (named after the API field);
+                             --dry-run prints the JSON body instead of sending it
+  refresh ID [--force]       refresh a feed; --force reprocesses stored entries still in the feed
+USAGE
+	exit 2
+}
+
+need_env() {
+	: "${MINIFLUX_URL:?MINIFLUX_URL is not set (e.g. https://reader.example.com)}"
+	: "${MINIFLUX_API_KEY:?MINIFLUX_API_KEY is not set (create one under Settings > API Keys)}"
+	MINIFLUX_URL=${MINIFLUX_URL%/}
+}
+
+# api METHOD PATH [BODY_FILE]: prints the response body; on a non-2xx status,
+# prints the status and body to stderr and fails.
+api() {
+	local method=$1 path=$2 body=${3:-} out status
+	out=$(mktemp)
+	local args=(-sS -X "$method" -o "$out" -w '%{http_code}' -H "X-Auth-Token: $MINIFLUX_API_KEY")
+	if [[ -n $body ]]; then
+		args+=(-H 'Content-Type: application/json' --data-binary "@$body")
+	fi
+	status=$(curl "${args[@]}" "$MINIFLUX_URL$path") || { rm -f "$out"; return 1; }
+	if [[ $status != 2* ]]; then
+		echo "mf: $method $path -> HTTP $status" >&2
+		cat "$out" >&2
+		echo >&2
+		rm -f "$out"
+		return 1
+	fi
+	cat "$out"
+	rm -f "$out"
+}
+
+preview_bin() {
+	local src=${MINIFLUX_SRC:-}
+	if [[ -z $src ]]; then
+		src=$(git rev-parse --show-toplevel 2>/dev/null) || true
+	fi
+	if [[ -z $src || ! -d $src/cmd/rewrite-preview ]]; then
+		echo "mf: no Miniflux checkout with cmd/rewrite-preview; set MINIFLUX_SRC" >&2
+		return 1
+	fi
+	local rev cache bin
+	rev=$(git -C "$src" rev-parse --short HEAD)
+	if [[ -n $(git -C "$src" status --porcelain -- cmd internal go.mod go.sum 2>/dev/null) ]]; then
+		rev="$rev-dirty-$(date +%s)"
+	fi
+	cache=${XDG_CACHE_HOME:-$HOME/.cache}/feed-cleanup
+	bin=$cache/rewrite-preview-$rev
+	if [[ ! -x $bin ]]; then
+		mkdir -p "$cache"
+		(cd "$src" && go build -o "$bin" ./cmd/rewrite-preview) >&2
+	fi
+	echo "$bin"
+}
+
+cmd=${1:-}
+[[ -n $cmd ]] || usage
+shift
+
+case $cmd in
+version)
+	need_env
+	api GET /v1/version | jq '{version, commit, build_date}'
+	;;
+feeds)
+	need_env
+	api GET /v1/feeds | jq '[.[] | {id, title, site_url, feed_url, crawler,
+		rules: ([to_entries[] | select((.key | IN("rewrite_rules","scraper_rules","urlrewrite_rules","block_filter_entry_rules","keep_filter_entry_rules","blocklist_rules","keeplist_rules")) and .value != "") | .key])}]'
+	;;
+feed)
+	[[ $# -eq 1 ]] || usage
+	need_env
+	api GET "/v1/feeds/$1" | jq '{id, title, site_url, feed_url, crawler, rewrite_rules, scraper_rules, urlrewrite_rules,
+		block_filter_entry_rules, keep_filter_entry_rules, blocklist_rules, keeplist_rules}'
+	;;
+entry)
+	[[ $# -eq 1 ]] || usage
+	need_env
+	api GET "/v1/entries/$1" | jq '{id, feed_id, title, url, published_at}'
+	;;
+get)
+	[[ $# -eq 1 ]] || usage
+	need_env
+	api GET "$1"
+	;;
+preview)
+	[[ $# -ge 1 ]] || usage
+	need_env
+	id=$1
+	shift
+	bin=$(preview_bin)
+	exec "$bin" -feed-id "$id" "$@"
+	;;
+apply)
+	[[ $# -eq 2 || ( $# -eq 3 && $3 == --dry-run ) ]] || usage
+	id=$1 dir=$2 dry=${3:-}
+	body=$(mktemp)
+	trap 'rm -f "$body"' EXIT
+	jq_args=() filter='{}' sent=()
+	for f in "${FIELDS[@]}"; do
+		[[ -f $dir/$f ]] || continue
+		sent+=("$f")
+		jq_args+=(--rawfile "$f" "$dir/$f")
+		if [[ $f == crawler ]]; then
+			filter+=" + {crawler: (\$crawler | sub(\"\\n+$\"; \"\") | IN(\"true\", \"1\"))}"
+		else
+			filter+=" + {$f: (\$$f | sub(\"\\n+$\"; \"\"))}"
+		fi
+	done
+	if [[ ${#sent[@]} -eq 0 ]]; then
+		echo "mf: no rule files in $dir (expected any of: ${FIELDS[*]})" >&2
+		exit 1
+	fi
+	jq -n "${jq_args[@]}" "$filter" >"$body"
+	if [[ -n $dry ]]; then
+		cat "$body"
+		exit 0
+	fi
+	need_env
+	api PUT "/v1/feeds/$id" "$body" | jq --argjson keys "$(printf '%s\n' id "${sent[@]}" | jq -R . | jq -s .)" \
+		'with_entries(select(.key as $k | $keys | index($k)))'
+	;;
+refresh)
+	[[ $# -ge 1 ]] || usage
+	need_env
+	q=
+	[[ ${2:-} == --force ]] && q='?force=true'
+	api PUT "/v1/feeds/$1/refresh$q" >/dev/null
+	echo "refreshed feed $1${q:+ (forced)}"
+	;;
+*)
+	usage
+	;;
+esac
