@@ -107,3 +107,9 @@ func isAllowedContentType(contentType string) bool {
 	return strings.HasPrefix(contentType, "text/html") ||
 		strings.HasPrefix(contentType, "application/xhtml+xml")
 }
+
+// PredefinedScraperRules returns the built-in scraper rules for the website's
+// domain, or "" if there are none. Custom feed rules replace these entirely.
+func PredefinedScraperRules(websiteURL string) string {
+	return getPredefinedScraperRules(websiteURL)
+}

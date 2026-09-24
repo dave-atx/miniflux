@@ -71,3 +71,9 @@ func minifyContent(content string) string {
 	ret, _ := htmlMinifier.String("text/html", content)
 	return ret
 }
+
+// MinifyContent exposes the minification applied to scraped content, so
+// tooling can reproduce the processor pipeline exactly.
+func MinifyContent(content string) string {
+	return minifyContent(content)
+}

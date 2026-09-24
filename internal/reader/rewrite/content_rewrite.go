@@ -213,3 +213,9 @@ func getPredefinedRewriteRules(entryURL string) string {
 
 	return ""
 }
+
+// PredefinedRewriteRules returns the built-in rewrite rules for the entry's
+// domain, or "" if there are none. Custom feed rules replace these entirely.
+func PredefinedRewriteRules(entryURL string) string {
+	return getPredefinedRewriteRules(entryURL)
+}
