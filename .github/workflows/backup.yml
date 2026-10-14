@@ -1,0 +1,112 @@
+# Backs up the miniflux database to R2: weekly on a schedule, and before every
+# deploy (called from fly.yml). Each dump is test-restored into a scratch
+# Postgres, encrypted with age, attested, and uploaded under weekly/ or
+# predeploy/. R2 lifecycle rules expire weekly/ after 45 days and predeploy/
+# after 14.
+#
+# This repo is public, so its Actions logs are too: never print dump contents,
+# row data, or anything from the database beyond pass/fail.
+#
+# Restore:
+#   1. aws s3 cp s3://miniflux-backups/weekly/<name>.dump.age . \
+#        --endpoint-url https://<account-id>.r2.cloudflarestorage.com --region auto
+#   2. gh attestation verify <name>.dump.age --repo dave-atx/miniflux
+#   3. age -d -i miniflux-backup.key -o miniflux.dump <name>.dump.age
+#   4. pg_restore (v17+) -d "$TARGET_DATABASE_URL" --no-owner --clean --if-exists \
+#        --exit-on-error miniflux.dump
+#   5. Point the app at it: fly secrets set DATABASE_URL=... -a dm-miniflux
+#   6. On a new server, recreate the read-only miniflux_backup role and update
+#      the BACKUP_DATABASE_URL secret.
+name: Database Backup
+on:
+  schedule:
+    - cron: "17 9 * * 0"
+  workflow_dispatch:
+    inputs:
+      prefix:
+        type: choice
+        options: [weekly, predeploy]
+        default: weekly
+  workflow_call:
+    inputs:
+      prefix:
+        type: string
+        default: predeploy
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+jobs:
+  backup:
+    name: Back up database
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PREFIX: ${{ inputs.prefix || 'weekly' }}
+      PG_IMAGE: postgres:17-alpine
+    steps:
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          OUT="$RUNNER_TEMP/backup"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+          mkdir -p "$OUT"
+          docker run --rm --user "$(id -u):$(id -g)" -e DATABASE_URL -v "$OUT:/out" "$PG_IMAGE" \
+            sh -c 'pg_dump "$DATABASE_URL" -n public --no-owner --no-privileges -Fc -Z zstd:19 -f /out/miniflux.dump'
+
+      - name: Test restore
+        run: |
+          pg() {
+            docker run --rm --network host -e PGHOST=localhost -e PGUSER=postgres -e PGPASSWORD=postgres \
+              -v "$OUT:/out:ro" "$PG_IMAGE" "$@"
+          }
+          pg pg_restore -d postgres --no-owner --clean --if-exists --exit-on-error /out/miniflux.dump
+          users=$(pg psql -d postgres -XAtc "select count(*) from users")
+          feeds=$(pg psql -d postgres -XAtc "select count(*) from feeds")
+          if [ "$users" -eq 0 ] || [ "$feeds" -eq 0 ]; then
+            echo "::error::Restored dump has no users or feeds"
+            exit 1
+          fi
+          echo "Restore check passed"
+
+      - name: Encrypt
+        id: encrypt
+        env:
+          AGE_RECIPIENT: ${{ secrets.AGE_RECIPIENT }}
+        run: |
+          sudo apt-get install -y -qq age >/dev/null
+          name="miniflux-$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_SHA::7}.dump.age"
+          age -r "$AGE_RECIPIENT" -o "$OUT/$name" "$OUT/miniflux.dump"
+          rm "$OUT/miniflux.dump"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Attest
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ env.OUT }}/${{ steps.encrypt.outputs.name }}
+
+      - name: Upload to R2
+        env:
+          NAME: ${{ steps.encrypt.outputs.name }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          aws s3 cp "$OUT/$NAME" "s3://miniflux-backups/$PREFIX/$NAME" \
+            --endpoint-url "$R2_ENDPOINT" --only-show-errors
+          echo "Uploaded $PREFIX/$NAME ($(stat -c %s "$OUT/$NAME") bytes)"
