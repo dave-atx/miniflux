@@ -4,8 +4,19 @@ on:
     branches:
       - flyio
 jobs:
+  backup:
+    name: Pre-deploy backup
+    uses: ./.github/workflows/backup.yml
+    with:
+      prefix: predeploy
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
   deploy:
     name: Deploy app
+    needs: backup
     runs-on: ubuntu-slim
     concurrency: deploy-group    # optional: ensure only one action runs at a time
     steps:
