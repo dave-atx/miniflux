@@ -19,6 +19,9 @@ kill_timeout = 5
   POLLING_PARSING_ERROR_LIMIT = "60"
   SCHEDULER_ROUND_ROBIN_MIN_INTERVAL = "5"
   WEBAUTHN = true
+  # Fly Proxy connects from 172.16.0.0/16 and appends the app's own public IPs
+  # (`fly ips list`) to X-Forwarded-For, so all of them are trusted hops.
+  TRUSTED_REVERSE_PROXY_NETWORKS = "172.16.0.0/16,66.241.124.152/32,2a09:8280:1::a:3bd7/128"
 
 [http_service]
   internal_port = 8080
