@@ -84,6 +84,7 @@ func GenerateStylesheetsBundles() error {
 		"dark_sans_serif":   {"css/dark.css", "css/sans_serif.css", "css/common.css"},
 		"system_serif":      {"css/system.css", "css/serif.css", "css/common.css"},
 		"system_sans_serif": {"css/system.css", "css/sans_serif.css", "css/common.css"},
+		"ember":             {"css/common.css", "css/ember.css"},
 	}
 
 	StylesheetBundles = make(map[string]asset, len(bundles))

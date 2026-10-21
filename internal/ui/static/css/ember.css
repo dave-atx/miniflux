@@ -1,0 +1,1475 @@
+/* Ember: the warm, editorial look of the Ember NetNewsWire theme
+   (https://ember.marquard.org), tuned for Safari on macOS, iOS and iPadOS.
+   Loaded after common.css, so its rules override the shared layout. Light
+   and dark follow the system; both grounds are warm, and the vermilion
+   accent turns a lighter coral in the dark. */
+
+@property --ember-column {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 0px;
+}
+
+@property --ember-bleed {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 0px;
+}
+
+:root {
+    --ember-bg: #FDFCFA;
+    --ember-ink: #1B1714;
+    --ember-ink-soft: #3B342E;
+    --ember-ink-mute: #857B72;
+    --ember-accent: #D6421F;
+    --ember-accent-2: #A9310F;
+    --ember-on-accent: #FFFFFF;
+    --ember-surface: #F2ECE4;
+    --ember-field: #FFFFFF;
+    --ember-rule: rgba(27, 23, 20, 0.10);
+    --ember-rule-2: rgba(27, 23, 20, 0.16);
+    --ember-tint: rgba(214, 66, 31, 0.05);
+    --ember-tint-2: rgba(214, 66, 31, 0.12);
+    --ember-ring: rgba(214, 66, 31, 0.22);
+    --ember-ok: #3D6B35;
+    --ember-ok-bg: #EDF2E4;
+    --ember-ok-rule: #D6E2C6;
+
+    --ember-sans: -apple-system, system-ui, "SF Pro Text", "Helvetica Neue", sans-serif;
+    --ember-serif: ui-serif, "New York", Georgia, serif;
+    --ember-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    --ember-gutter: max(20px, env(safe-area-inset-left), env(safe-area-inset-right));
+    --ember-measure: 42rem;
+
+    --font-family: var(--ember-sans);
+    --body-color: var(--ember-ink);
+    --body-background: var(--ember-bg);
+    --hr-border-color: var(--ember-rule-2);
+    --title-color: var(--ember-ink);
+    --link-color: var(--ember-accent);
+    --link-focus-color: var(--ember-accent-2);
+    --link-hover-color: var(--ember-accent-2);
+    --link-visited-color: var(--ember-accent);
+
+    --header-list-border-color: var(--ember-rule);
+    --header-link-color: var(--ember-ink-mute);
+    --header-link-focus-color: var(--ember-accent);
+    --header-link-hover-color: var(--ember-accent);
+    --header-active-link-color: var(--ember-ink);
+
+    --page-header-title-border-color: var(--ember-rule);
+    --page-header-title-color: var(--ember-ink);
+
+    --logo-color: var(--ember-ink);
+    --logo-hover-color-span: var(--ember-ink);
+
+    --table-border-color: var(--ember-rule);
+    --table-th-background: transparent;
+    --table-th-color: var(--ember-ink-mute);
+    --table-tr-hover-background-color: var(--ember-tint);
+    --table-tr-hover-color: var(--ember-ink);
+
+    --button-primary-border-color: var(--ember-accent);
+    --button-primary-background: var(--ember-accent);
+    --button-primary-color: var(--ember-on-accent);
+    --button-primary-focus-border-color: var(--ember-accent-2);
+    --button-primary-focus-background: var(--ember-accent-2);
+
+    --input-border: 1px solid var(--ember-rule-2);
+    --input-background: var(--ember-field);
+    --input-color: var(--ember-ink);
+    --input-placeholder-color: var(--ember-ink-mute);
+    --input-focus-color: var(--ember-ink);
+    --input-focus-border-color: var(--ember-accent);
+    --input-focus-box-shadow: 0 0 0 3px var(--ember-ring);
+
+    --alert-color: var(--ember-ink-soft);
+    --alert-background-color: var(--ember-surface);
+    --alert-border-color: var(--ember-rule);
+    --alert-success-color: var(--ember-ok);
+    --alert-success-background-color: var(--ember-ok-bg);
+    --alert-success-border-color: var(--ember-ok-rule);
+    --alert-error-color: var(--ember-accent-2);
+    --alert-error-background-color: var(--ember-tint);
+    --alert-error-border-color: var(--ember-ring);
+    --alert-info-color: var(--ember-ink-soft);
+    --alert-info-background-color: var(--ember-surface);
+    --alert-info-border-color: var(--ember-rule);
+
+    --panel-background: var(--ember-surface);
+    --panel-border-color: var(--ember-rule);
+    --panel-color: var(--ember-ink-soft);
+
+    --pagination-link-color: var(--ember-accent);
+    --pagination-border-color: var(--ember-rule);
+
+    --category-color: var(--ember-ink-mute);
+    --category-background-color: var(--ember-surface);
+    --category-border-color: var(--ember-surface);
+    --category-link-color: var(--ember-ink-mute);
+    --category-link-hover-color: var(--ember-accent);
+
+    --item-border-color: var(--ember-rule);
+    --item-padding: 14px 12px;
+    --item-title-link-font-weight: 650;
+    --item-status-read-title-link-color: var(--ember-ink-mute);
+    --item-status-read-title-focus-color: var(--ember-ink-mute);
+    --item-meta-focus-color: var(--ember-ink-mute);
+    --item-meta-li-color: var(--ember-ink-mute);
+
+    --entry-header-border-color: var(--ember-rule);
+    --entry-header-title-link-color: var(--ember-ink);
+    --entry-content-color: var(--ember-ink);
+    --entry-content-font-weight: 400;
+    --entry-content-font-family: var(--ember-sans);
+    --entry-content-quote-font-family: var(--ember-sans);
+    --entry-content-code-color: var(--ember-ink);
+    --entry-content-code-background: var(--ember-surface);
+    --entry-content-code-border-color: var(--ember-rule);
+    --entry-content-quote-color: var(--ember-ink-soft);
+    --entry-content-abbr-border-color: var(--ember-ink-mute);
+    --entry-content-aside-border-color: var(--ember-rule-2);
+    --entry-enclosure-border-color: var(--ember-rule-2);
+
+    --parsing-error-color: var(--ember-accent-2);
+    --feed-parsing-error-background-color: var(--ember-tint);
+    --feed-parsing-error-border-style: solid;
+    --feed-parsing-error-border-color: var(--ember-rule);
+    --feed-has-unread-background-color: transparent;
+    --feed-has-unread-border-style: solid;
+    --feed-has-unread-border-color: var(--ember-rule);
+    --category-has-unread-background-color: transparent;
+    --category-has-unread-border-style: solid;
+    --category-has-unread-border-color: var(--ember-rule);
+
+    --keyboard-shortcuts-li-color: var(--ember-ink-soft);
+    --counter-color: var(--ember-ink-mute);
+
+    color-scheme: light dark;
+    accent-color: var(--ember-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ember-bg: #1A1613;
+        --ember-ink: #ECE6DF;
+        --ember-ink-soft: #CBC3BA;
+        --ember-ink-mute: #9A9088;
+        --ember-accent: #FF7A50;
+        --ember-accent-2: #FF9670;
+        --ember-on-accent: #1A1613;
+        --ember-surface: #2A2320;
+        --ember-field: #221D1A;
+        --ember-rule: rgba(236, 230, 223, 0.12);
+        --ember-rule-2: rgba(236, 230, 223, 0.18);
+        --ember-tint: rgba(255, 122, 80, 0.08);
+        --ember-tint-2: rgba(255, 122, 80, 0.18);
+        --ember-ring: rgba(255, 122, 80, 0.32);
+        --ember-ok: #A8CC93;
+        --ember-ok-bg: #222A1C;
+        --ember-ok-rule: #33402A;
+    }
+}
+
+/* ---------- Canvas ---------------------------------------------------- */
+
+/* The root is the query container, so 100cqw below is the viewport without
+   any classic scrollbar. Containment stops the body's background from
+   painting the canvas, so the root carries it. */
+:root {
+    container-type: inline-size;
+    background-color: var(--ember-bg);
+}
+
+/* Safari on iOS and iPadOS: take the system body size, so Dynamic Type sets
+   the scale. Every rem below follows it. */
+@supports (-webkit-touch-callout: none) {
+    :root {
+        font: -apple-system-body;
+        -webkit-tap-highlight-color: var(--ember-tint-2);
+    }
+}
+
+body {
+    padding-inline: var(--ember-gutter);
+    padding-bottom: env(safe-area-inset-bottom);
+    background-color: var(--ember-bg);
+    -webkit-font-smoothing: antialiased;
+    font-synthesis: none;
+    line-height: 1.45;
+    /* The reading column, for images that size themselves against it (see
+       Bleeding media), and how far they may spread past it on each side:
+       the gutter on a phone, up to 48px where there is room. */
+    --ember-column: min(min(100cqw, 900px) - 2 * var(--ember-gutter), var(--ember-measure));
+    --ember-bleed: min(48px, (100cqw - var(--ember-column)) / 2);
+}
+
+@media (min-width: 620px) {
+    :root {
+        --ember-gutter: max(32px, env(safe-area-inset-left), env(safe-area-inset-right));
+    }
+}
+
+main {
+    padding-inline: 0;
+}
+
+a:focus {
+    outline: none;
+}
+
+a:focus-visible,
+button:focus-visible {
+    outline: 2px solid var(--ember-accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+hr {
+    border-top: 1px solid var(--ember-rule);
+}
+
+dialog {
+    background: var(--ember-bg);
+    color: var(--ember-ink);
+    padding: 24px var(--ember-gutter);
+}
+
+.btn-close-modal {
+    color: var(--ember-ink-mute);
+}
+
+.btn-close-modal:hover {
+    color: var(--ember-accent);
+}
+
+#toast-msg {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background-color: var(--ember-ink);
+    color: var(--ember-bg);
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+/* ---------- Masthead -------------------------------------------------- */
+
+.header {
+    margin-top: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ember-rule);
+}
+
+.header .logo a {
+    color: var(--logo-color);
+    font-size: 1.15em;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.logo a span,
+.logo a:hover,
+.logo a:hover span {
+    color: var(--ember-accent);
+}
+
+.header nav .logo svg {
+    color: var(--ember-ink-mute);
+}
+
+.header li {
+    border-bottom: 1px solid var(--header-list-border-color);
+}
+
+.header li:last-child {
+    border-bottom: none;
+}
+
+.header :is(a, summary, .logout-button) {
+    font-weight: 500;
+    color: var(--header-link-color);
+}
+
+.header li :is(a, .logout-button):hover {
+    color: var(--ember-accent);
+}
+
+.header .active a {
+    color: var(--header-active-link-color);
+    font-weight: 700;
+}
+
+.header .icon {
+    color: var(--ember-ink-mute);
+}
+
+.header .active .icon {
+    color: var(--ember-accent);
+}
+
+.unread-counter-wrapper,
+.error-feeds-counter-wrapper {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.error-feeds-counter-wrapper {
+    color: var(--ember-accent);
+}
+
+@media (min-width: 620px) {
+    .header {
+        padding-left: 0;
+    }
+
+    .header nav {
+        align-items: baseline;
+    }
+
+    /* On an iPad, Dynamic Type puts the root at 17px or more, and the stock
+       inline list ran out of room and dropped Logout onto a line of its own.
+       Lay the menu out as a wrapping row instead, a step smaller, with Logout
+       cut to its icon at the far end. */
+    .header ul:not(.js-menu-show),
+    .header ul.js-menu-show {
+        display: flex;
+        flex: 1;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 14px;
+    }
+
+    .header li {
+        padding: 0;
+        border: none;
+        font-size: 0.9rem;
+    }
+
+    .header li:has(.logout-form) {
+        margin-left: auto;
+    }
+
+    .header .logout-button {
+        font-size: 0;
+    }
+
+    .header .logo {
+        padding-right: 16px;
+    }
+}
+
+/* ---------- Page header ----------------------------------------------- */
+
+/* Ember's section heads: heavy type flagged with a short accent bar. */
+.page-header {
+    padding-inline: 0;
+    margin-bottom: 18px;
+}
+
+.page-header h1 {
+    position: relative;
+    padding-top: 0.55em;
+    margin-bottom: 8px;
+    border-bottom: none;
+    font-size: 1.7rem;
+    font-weight: 800;
+    letter-spacing: -0.021em;
+    line-height: 1.12;
+}
+
+.page-header h1::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2.1rem;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ember-accent);
+}
+
+.page-header h1 a:hover,
+.page-header h1 a:focus {
+    color: var(--ember-accent);
+}
+
+.page-header li,
+.page-footer li {
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.page-header ul a,
+:is(.page-button, .page-link) {
+    color: var(--ember-accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+:is(.page-button, .page-link):is(:hover, :focus) {
+    color: var(--ember-accent-2);
+}
+
+.page-button {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* ---------- Lists ----------------------------------------------------- */
+
+.item {
+    margin: 0;
+    border: none;
+    border-bottom: 1px solid var(--item-border-color);
+    border-radius: 0;
+}
+
+.items {
+    border-top: 1px solid var(--item-border-color);
+}
+
+article.feed-has-unread,
+article.category-has-unread {
+    border-width: 0 0 1px;
+}
+
+/* The current item takes the accent flag and a warm wash; padding stays put,
+   so moving through a list never shifts its text. */
+.item.current-item {
+    border: none;
+    border-bottom: 1px solid var(--item-border-color);
+    padding: var(--item-padding);
+    background: var(--ember-tint);
+    box-shadow: inset 3px 0 0 var(--ember-accent);
+}
+
+.item-header {
+    line-height: 1.3;
+}
+
+.item-title {
+    font-size: 1.05rem;
+    letter-spacing: -0.012em;
+}
+
+.item-title a {
+    color: var(--ember-ink);
+}
+
+.item-title a:hover {
+    color: var(--ember-accent);
+}
+
+.item-title img {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    vertical-align: -2px;
+    border-radius: 4px;
+}
+
+.item-status-read .item-title a {
+    font-weight: 500;
+}
+
+/* A feed or category with nothing unread recedes like a read entry. */
+.feed-item:not(.feed-has-unread, .feed-parsing-error) .item-title a,
+.category-item:not(.category-has-unread) .item-title a {
+    color: var(--ember-ink-mute);
+    font-weight: 500;
+}
+
+.feed-has-unread .feed-entries-counter,
+.category-has-unread .category-item-total {
+    color: var(--ember-accent);
+}
+
+.feed-entries-counter,
+.category-item-total {
+    font-size: 0.85em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ember-ink-mute);
+}
+
+article.feed-parsing-error {
+    box-shadow: inset 3px 0 0 var(--ember-accent);
+}
+
+.parsing-error {
+    font-weight: 600;
+}
+
+.category {
+    display: inline-block;
+    margin-left: 0.4em;
+    padding: 2px 8px;
+    border: none;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    vertical-align: 1px;
+}
+
+.item-meta {
+    margin-top: 4px;
+    font-size: 0.8rem;
+}
+
+.item-meta-info {
+    font-size: 1em;
+}
+
+.item-meta-info li:not(:last-child):after {
+    content: "·";
+    padding-inline: 0.45em;
+}
+
+/* The feed name reads as Ember's masthead: accent, bold small caps. */
+.item-meta-info-title a,
+.item-meta-info-site-url a {
+    color: var(--ember-accent);
+    font-weight: 700;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.06em;
+    font-size: 1.1em;
+}
+
+.item-meta a {
+    color: var(--ember-ink-mute);
+}
+
+.item-meta ul {
+    margin-top: 6px;
+}
+
+.item-meta-icons li {
+    margin-right: 14px;
+}
+
+.item-meta-icons li :is(a, button) {
+    color: var(--ember-ink-mute);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.item-meta :is(a:is(:focus, :hover), button:is(:focus, :hover)),
+.item-meta-icons li :is(a, button):hover {
+    color: var(--ember-accent);
+}
+
+.item-meta-icons a span,
+.entry-actions a span {
+    text-decoration: none;
+}
+
+.icon {
+    vertical-align: -3px;
+}
+
+/* Entry lists: the actions shrink to a row of icons at the end of the meta
+   line, so each entry takes two lines. Where there is a pointer they stay
+   faint until the entry is hovered or current; a starred entry keeps its
+   star lit. */
+.entry-item {
+    --item-padding: 10px 12px;
+}
+
+.entry-item .item-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px 12px;
+    margin-top: 3px;
+}
+
+.entry-item .item-meta ul {
+    margin-top: 0;
+}
+
+.entry-item .item-meta-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.entry-item .item-meta-icons {
+    display: flex;
+    flex: none;
+}
+
+.entry-item .item-meta-icons li {
+    margin: 0;
+}
+
+.entry-item .item-meta-icons li :is(a, button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 26px;
+    padding: 0 5px;
+    border-radius: 6px;
+}
+
+.entry-item .item-meta-icons li :is(a, button):hover {
+    background: var(--ember-tint-2);
+}
+
+.entry-item .item-meta-icons .icon {
+    margin: 0;
+    vertical-align: middle;
+}
+
+.entry-item .item-meta-icons .icon-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.entry-item .item-meta-icons [data-toggle-starred][data-value="star"] {
+    color: var(--ember-accent);
+}
+
+@media (hover: hover) {
+    .entry-item .item-meta-icons li :is(a, button):not([data-value="star"]) {
+        opacity: 0.4;
+    }
+
+    .entry-item:is(:hover, :focus-within, .current-item) .item-meta-icons li :is(a, button) {
+        opacity: 1;
+    }
+}
+
+/* The unread page's mark-as-read buttons: keyboard shortcuts cover them,
+   and the same button waits at the foot of the list. */
+.page-header:has([data-redirect-url$="/unread"]) nav {
+    display: none;
+}
+
+/* ---------- Pagination ------------------------------------------------ */
+
+.pagination {
+    font-size: 0.95em;
+    font-weight: 600;
+}
+
+.pagination a {
+    text-decoration: none;
+}
+
+.pagination a:hover {
+    color: var(--ember-accent-2);
+}
+
+.pagination .disabled {
+    opacity: 1;
+    color: var(--ember-rule-2);
+}
+
+.pagination-backward,
+.pagination-forward {
+    display: flex;
+}
+
+.pagination-top {
+    padding-bottom: 12px;
+}
+
+.pagination-bottom {
+    padding-top: 14px;
+}
+
+.elevator {
+    color: var(--ember-ink-mute);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+/* ---------- Forms ----------------------------------------------------- */
+
+fieldset {
+    border: 1px solid var(--ember-rule);
+    border-radius: 10px;
+    padding: 12px 16px 16px;
+}
+
+legend {
+    padding-inline: 6px;
+    font-weight: 700;
+}
+
+label {
+    font-weight: 500;
+}
+
+/* 1rem keeps every field at 16px or more, so Safari on iOS never zooms in
+   when one takes focus. */
+input[type="search"],
+input[type="url"],
+input[type="password"],
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+    max-width: 100%;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+select {
+    padding: 5px 8px;
+    color: var(--input-color);
+    background-color: var(--input-background);
+    border: var(--input-border);
+}
+
+input.code-input,
+textarea.code-input {
+    font-family: var(--ember-mono);
+    font-size: 0.9rem;
+}
+
+.form-help {
+    color: var(--ember-ink-mute);
+}
+
+.form-section {
+    border-left: 2px solid var(--ember-rule);
+}
+
+details > summary {
+    font-weight: 600;
+}
+
+details > summary::marker {
+    color: var(--ember-accent);
+}
+
+/* ---------- Buttons --------------------------------------------------- */
+
+.button {
+    padding: 6px 16px;
+    border: 1px solid var(--ember-rule-2);
+    border-radius: 8px;
+    background: var(--ember-surface);
+    color: var(--ember-ink);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.button:hover,
+.button:focus {
+    border-color: var(--ember-accent);
+    color: var(--ember-accent);
+}
+
+.button-primary {
+    border-color: var(--button-primary-border-color);
+    background: var(--button-primary-background);
+    color: var(--button-primary-color);
+}
+
+a.button-primary:hover,
+a.button-primary:focus,
+.button-primary:hover,
+.button-primary:focus {
+    border-color: var(--button-primary-focus-border-color);
+    background: var(--button-primary-focus-background);
+    color: var(--button-primary-color);
+}
+
+.button-danger {
+    border-color: #A9271C;
+    background: #C0392B;
+    color: #FFFFFF;
+}
+
+.button-danger:hover,
+.button-danger:focus {
+    border-color: #8E1F16;
+    background: #A9271C;
+    color: #FFFFFF;
+}
+
+.button:disabled {
+    border-color: var(--ember-rule);
+    background: var(--ember-surface);
+    color: var(--ember-ink-mute);
+}
+
+.confirm,
+.confirm button {
+    color: var(--ember-accent);
+    font-family: inherit;
+}
+
+/* ---------- Panels, alerts, tables ------------------------------------ */
+
+.alert,
+.panel {
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+
+.panel h3 {
+    font-weight: 700;
+}
+
+.bookmarklet {
+    border: 1px dashed var(--ember-rule-2);
+    border-radius: 10px;
+}
+
+table,
+th,
+td {
+    border: none;
+    border-bottom: 1px solid var(--table-border-color);
+}
+
+th,
+td {
+    padding: 8px 10px;
+}
+
+th {
+    font-weight: 700;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.04em;
+}
+
+.keyboard-shortcuts li {
+    list-style-type: none;
+    margin-left: 0;
+}
+
+.keyboard-shortcuts strong {
+    font-family: var(--ember-mono);
+    font-size: 0.9em;
+    color: var(--ember-accent);
+}
+
+/* ---------- Entry header ---------------------------------------------- */
+
+/* Rearranged into Ember's article masthead: feed and author over a rule,
+   the headline, the accent dateline, the source link and tags, then the
+   actions as a row of chips. */
+.entry,
+.entry-content,
+.pagination-entry-top,
+.pagination-entry-bottom {
+    max-width: var(--ember-measure);
+    margin-inline: auto;
+}
+
+.entry header {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border-bottom: none;
+}
+
+.entry-meta {
+    order: -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--entry-header-border-color);
+    color: var(--ember-ink-mute);
+    font-size: 0.95em;
+    line-height: 1.45;
+}
+
+.entry-website {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.entry-website img {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    vertical-align: middle;
+}
+
+.entry-website a {
+    color: var(--ember-accent);
+    font-size: 0.86em;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.entry-website a:hover,
+.entry-website a:focus {
+    color: var(--ember-accent-2);
+    text-decoration: none;
+}
+
+.entry-author em {
+    font-style: normal;
+}
+
+.entry-meta .category {
+    margin-left: auto;
+}
+
+.entry header h1 {
+    order: 0;
+    margin: 22px 0 0;
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -0.021em;
+    line-height: 1.08;
+}
+
+.entry header h1 a:hover,
+.entry header h1 a:focus {
+    color: var(--ember-accent);
+}
+
+.entry-date {
+    order: 1;
+    margin-top: 10px;
+    color: var(--ember-accent);
+    font-size: 0.95em;
+    font-style: normal;
+    font-weight: 700;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.06em;
+}
+
+.entry-external-link {
+    order: 2;
+    margin: 8px 0 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.8em;
+}
+
+.entry-external-link a {
+    color: var(--ember-ink-mute);
+    font-family: var(--ember-mono);
+    text-decoration: none;
+}
+
+.entry-external-link a:hover {
+    color: var(--ember-accent);
+}
+
+.entry-tags {
+    order: 3;
+    margin: 10px 0 0;
+    color: var(--ember-ink-mute);
+    font-size: 0.85em;
+}
+
+.entry-tags a {
+    color: var(--ember-ink-soft);
+    text-decoration: none;
+}
+
+.entry-actions {
+    order: 4;
+    margin: 18px 0 0;
+}
+
+.entry-actions ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.entry-actions li {
+    margin: 0;
+    line-height: normal;
+}
+
+.entry-actions form {
+    display: contents;
+}
+
+.entry-actions :is(.page-button, a) {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--ember-surface);
+    color: var(--ember-ink-soft);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.entry-actions :is(.page-button, a):hover {
+    background: var(--ember-tint-2);
+    color: var(--ember-accent);
+}
+
+.entry-actions .icon {
+    margin: 0;
+    vertical-align: middle;
+}
+
+.pagination-entry-top {
+    padding-top: 18px;
+}
+
+.pagination-entry-bottom {
+    margin-top: 48px;
+    border-top: 1px solid var(--pagination-border-color);
+    padding-top: 12px;
+}
+
+/* ---------- Article body ---------------------------------------------- */
+
+.entry-content {
+    margin-top: 22px;
+    padding-top: 24px;
+    border-top: 1px solid var(--ember-rule);
+    font-size: 1.125rem;
+    line-height: 1.66;
+    letter-spacing: -0.003em;
+}
+
+/* iOS: the root already is the reader's Dynamic Type size; on an iPad's roomy
+   column scale it up a step, as Ember does. */
+@supports (-webkit-touch-callout: none) {
+    .entry-content {
+        font-size: 1rem;
+    }
+
+    @media (min-width: 620px) {
+        .entry-content {
+            font-size: 1.15rem;
+        }
+    }
+}
+
+@media (min-width: 620px) {
+    .entry header h1 {
+        font-size: 2.35rem;
+    }
+}
+
+.entry-content p {
+    margin-top: 0;
+    margin-bottom: 1.15em;
+}
+
+.entry-content a {
+    color: var(--ember-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--ember-accent) 55%, transparent);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2.5px;
+}
+
+.entry-content a:visited {
+    color: var(--ember-accent);
+}
+
+.entry-content a:has(img) {
+    text-decoration: none;
+}
+
+@media (hover: hover) {
+    .entry-content a:not(:has(img)):hover {
+        border-radius: 2px;
+        background: linear-gradient(0deg, var(--ember-accent-2) 0%, var(--ember-accent) 100%);
+        color: var(--ember-on-accent);
+        text-decoration-color: transparent;
+    }
+}
+
+.entry-content strong {
+    font-weight: 700;
+}
+
+/* Drop cap on the opening paragraph, which is the first one that is neither
+   empty nor the bare caption paragraph a MacStories image leaves behind once
+   the sanitizer drops its class. flow-root keeps the floated cap inside a
+   short opener, so it cannot shove a following block aside. */
+.entry-content > p:not(:is(:empty, img[src*="cdn.macstories.net/"] + p)):not(p:not(:is(:empty, img[src*="cdn.macstories.net/"] + p)) ~ p) {
+    display: flow-root;
+}
+
+.entry-content > p:not(:is(:empty, img[src*="cdn.macstories.net/"] + p)):not(p:not(:is(:empty, img[src*="cdn.macstories.net/"] + p)) ~ p)::first-letter {
+    float: left;
+    margin: 0.02em 0.09em 0 0;
+    color: var(--ember-accent);
+    font-size: 3.5em;
+    font-weight: 800;
+    line-height: 0.78;
+    -webkit-hyphens: none;
+}
+
+/* Section heads, flagged with a short accent bar. */
+.entry-content :is(h1, h2, h3) {
+    position: relative;
+    margin-top: 1.9em;
+    margin-bottom: 0.45em;
+    padding-top: 0.62em;
+    color: var(--ember-ink);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.18;
+}
+
+.entry-content h1 { font-size: 1.6em; }
+.entry-content h2 { font-size: 1.5em; }
+.entry-content h3 { font-size: 1.22em; }
+
+.entry-content :is(h1, h2, h3)::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2.1em;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ember-accent);
+}
+
+.entry-content :is(h4, h5, h6) {
+    margin-top: 1.6em;
+    margin-bottom: 0.4em;
+    color: var(--ember-ink);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.entry-content > :first-child:is(h1, h2, h3) {
+    margin-top: 0;
+}
+
+/* Pull-quotes: a tinted panel on an accent rule. */
+.entry-content blockquote {
+    margin: 1.7em 0;
+    padding: 0.7em 1.2em 0.7em 1.15em;
+    border-left: 4px solid var(--ember-accent);
+    border-radius: 0 6px 6px 0;
+    background: var(--ember-tint);
+    color: var(--ember-ink-soft);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.entry-content blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+.entry-content blockquote cite {
+    display: block;
+    margin-top: 0.5em;
+    color: var(--ember-ink-mute);
+    font-size: 0.78em;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.entry-content :is(ul, ol) {
+    margin: 0 0 1.15em;
+    padding-left: 1.6em;
+}
+
+.entry-content ul {
+    list-style-type: disc;
+}
+
+.entry-content li {
+    margin-bottom: 0.3em;
+}
+
+.entry-content li::marker {
+    color: var(--ember-accent);
+}
+
+.entry-content dd {
+    border-left: 3px solid var(--ember-rule-2);
+    color: var(--ember-ink-soft);
+    font-weight: 400;
+}
+
+.entry-content dt {
+    color: var(--ember-ink);
+    font-weight: 700;
+}
+
+.entry-content aside {
+    padding: 0.85em 1.1em;
+    border: none;
+    border-radius: 8px;
+    background: var(--ember-surface);
+    font-style: normal;
+}
+
+/* Code */
+.entry-content :is(code, pre) {
+    font-family: var(--ember-mono);
+    font-size: 0.88em;
+    -webkit-hyphens: none;
+}
+
+.entry-content code {
+    padding: 1px 4px;
+    border-radius: 4px;
+}
+
+.entry-content pre {
+    margin: 0 0 1.15em;
+    padding: 12px;
+    border-radius: 8px;
+    line-height: 1.45;
+}
+
+.entry-content pre code {
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 1em;
+    letter-spacing: -0.027em;
+}
+
+/* Tables */
+.entry-content table {
+    margin-bottom: 1.15em;
+    font-size: 0.92em;
+}
+
+.entry-content :is(th, td) {
+    -webkit-hyphens: none;
+    word-break: normal;
+}
+
+/* Rules: a short centered accent stroke. */
+.entry-content hr {
+    width: 30%;
+    height: 2px;
+    margin: 2.4em auto;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    background: var(--ember-accent);
+    opacity: 0.7;
+}
+
+/* ---------- Media ----------------------------------------------------- */
+
+.entry-content img {
+    border-radius: 8px;
+}
+
+.entry-content figure {
+    margin: 1.6em 0;
+}
+
+.entry-content figure img {
+    border: none;
+}
+
+.entry-content > img:first-child,
+.entry-content > figure:first-child,
+.entry-content > p:first-child > img:only-child {
+    margin-top: 0;
+}
+
+.entry-content > img:first-child {
+    margin-bottom: 1.6em;
+}
+
+/* Bleeding media: an image keeps its own size and is never upscaled. One
+   narrower than the column lines up with the text's left edge; a wider one
+   spreads evenly into both margins, up to the bleed, corners flush.
+
+   Each image starts at the left bleed edge and translates back toward the
+   text by half the room it leaves, capped at the bleed. A translate
+   percentage is the image's own width, so it is the one property that can
+   weigh that against the column's. Inside a figure only the image bleeds;
+   the caption stays inset with the copy. */
+.entry-content > img,
+.entry-content > a:only-child > img,
+.entry-content > p > img:only-child,
+.entry-content > p > a:only-child > img:only-child,
+.entry-content figure > img,
+.entry-content figure > picture > img,
+.entry-content figure > a img {
+    display: block;
+    max-width: calc(100% + 2 * var(--ember-bleed));
+    margin-left: calc(-1 * var(--ember-bleed));
+    margin-right: auto;
+    translate: clamp(0px, (var(--ember-column) + 2 * var(--ember-bleed) - 100%) / 2, var(--ember-bleed));
+    border-radius: 0;
+}
+
+.entry-content figure > a {
+    display: block;
+}
+
+.entry-content figure > :is(a, img, picture) {
+    margin-bottom: 0.7em;
+}
+
+/* MacStories app icons through Miniflux: a bare image, an empty paragraph,
+   then the app's heading. Float the icon beside the heading instead of
+   letting a 512px icon stand column-wide. */
+.entry-content > img[src*="cdn.macstories.net/"]:has(+ p:empty + h3) {
+    float: left;
+    clear: left;
+    width: 5.5em;
+    margin: 0 1em 0.5em 0;
+    translate: none;
+    border-radius: 22%;
+}
+
+.entry-content > img[src*="cdn.macstories.net/"]:has(+ p:empty + h3) + p:empty {
+    display: none;
+}
+
+.entry-content > img[src*="cdn.macstories.net/"] + p:empty + h3 {
+    display: flow-root;
+}
+
+/* Captions in the serif italic against the sans body, so a caption never
+   reads as copy. A MacStories caption arrives as the bare paragraph after
+   its image. */
+.entry-content figcaption,
+.entry-content > img[src*="cdn.macstories.net/"] + p:not(:empty) {
+    margin-top: 0.7em;
+    color: var(--ember-ink-soft);
+    font-family: var(--ember-serif);
+    font-size: 0.86em;
+    font-style: italic;
+    line-height: 1.45;
+    text-transform: none;
+}
+
+.entry-content > img[src*="cdn.macstories.net/"] + p:not(:empty) {
+    margin-bottom: calc(1.6em / 0.86);
+}
+
+.entry-content > img[src*="cdn.macstories.net/"]:has(+ p:not(:empty)) {
+    margin-bottom: 0;
+}
+
+.entry-content iframe {
+    max-width: 100%;
+    margin: 1.6em auto;
+    border: none;
+    border-radius: 8px;
+}
+
+.entry-content :is(iframe[src*="youtube.com/"], iframe[src*="youtube-nocookie.com/"], iframe[src*="vimeo.com/"]) {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
+/* ---------- Enclosures ------------------------------------------------ */
+
+details.entry-enclosures {
+    max-width: var(--ember-measure);
+    margin-inline: auto;
+}
+
+.entry-enclosures summary {
+    font-size: 1em;
+    font-weight: 700;
+}
+
+.entry-enclosure {
+    border: 1px solid var(--entry-enclosure-border-color);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.media-controls .page-button {
+    padding: 4px 8px;
+}
+
+/* ---------- Motion ---------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+    a,
+    .page-button,
+    .button,
+    .item-meta-icons :is(a, button) {
+        transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out;
+    }
+
+    /* The current-item wash follows j and k instead of jumping. */
+    .item {
+        transition: background-color 160ms ease-out, box-shadow 160ms ease-out;
+    }
+
+    /* An entry read on the unread page slides aside and fades, then folds
+       its height away. It still ends at display: none, which the list's
+       navigation relies on to skip it. max-height needs a number to animate
+       from; no two-line entry comes near 24rem. */
+    .hide-read-items .entry-item {
+        max-height: 24rem;
+    }
+
+    .hide-read-items .item-status-read:not(.current-item) {
+        max-height: 0;
+        padding-block: 0;
+        border-bottom-width: 0;
+        opacity: 0;
+        translate: 1.5rem 0;
+        transition:
+            opacity 160ms ease-in,
+            translate 160ms ease-in,
+            max-height 260ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms,
+            padding 260ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms,
+            border-bottom-width 0s linear 380ms,
+            display 0s allow-discrete 380ms;
+    }
+
+    /* The phone menu drops in, and its chevron turns. */
+    .header nav .logo svg {
+        transition: rotate 180ms ease-out;
+    }
+
+    .header ul.js-menu-show {
+        transition: opacity 180ms ease-out, translate 180ms ease-out;
+    }
+
+    @starting-style {
+        .header ul.js-menu-show {
+            opacity: 0;
+            translate: 0 -6px;
+        }
+    }
+
+    /* Toasts rise into place and lift away. */
+    .toast-animate {
+        animation: ember-toast 2s ease-out;
+    }
+
+    @keyframes ember-toast {
+        0% { visibility: visible; opacity: 0; translate: 0 12px; z-index: 9999; }
+        12%, 80% { visibility: visible; opacity: 1; translate: 0 0; z-index: 9999; }
+        100% { visibility: hidden; opacity: 0; translate: 0 -6px; z-index: 0; }
+    }
+}
