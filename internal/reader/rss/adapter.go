@@ -406,6 +406,8 @@ func findEntryEnclosures(rssItem *rssItem, siteURL string) model.EnclosureList {
 			URL:      mediaURL,
 			MimeType: mediaContent.MimeType(),
 			Size:     mediaContent.Size(),
+			Caption:  strings.TrimSpace(mediaContent.Text),
+			Credit:   strings.TrimSpace(mediaContent.Credit),
 		})
 	}
 

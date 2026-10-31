@@ -18,6 +18,11 @@ type Enclosure struct {
 	MimeType         string `json:"mime_type"`
 	Size             int64  `json:"size"`
 	MediaProgression int64  `json:"media_progression"`
+
+	// Caption and Credit come from media:text and media:credit. They are not stored
+	// and are only available while processing freshly parsed entries.
+	Caption string `json:"-"`
+	Credit  string `json:"-"`
 }
 
 type EnclosureUpdateRequest struct {

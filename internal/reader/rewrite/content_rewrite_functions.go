@@ -366,13 +366,24 @@ func addEnclosureLinks(entry *model.Entry) string {
 		}
 
 		enclosureURL := html.EscapeString(enclosure.URL)
-		links.WriteString(`<li><a href="` + enclosureURL + `">` + enclosureURL + `</a></li>`)
+		links.WriteString(`<li><a href="` + enclosureURL + `">` + enclosureURL + `</a>`)
+		if caption := enclosureCaption(enclosure); caption != "" {
+			links.WriteString(`<p>` + html.EscapeString(caption) + `</p>`)
+		}
+		links.WriteString(`</li>`)
 	}
 
 	if links.Len() > 0 {
 		return entry.Content + "<hr/><ul>" + strings.TrimSpace(links.String()) + "</ul>"
 	}
 	return entry.Content
+}
+
+func enclosureCaption(enclosure *model.Enclosure) string {
+	if enclosure.Credit == "" {
+		return enclosure.Caption
+	}
+	return strings.TrimSpace(enclosure.Caption + " Credit: " + enclosure.Credit)
 }
 
 func replaceTextLinks(input string) string {
