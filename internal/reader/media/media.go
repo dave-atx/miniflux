@@ -83,6 +83,8 @@ type Content struct {
 	Type     string `xml:"type,attr"`
 	FileSize string `xml:"fileSize,attr"`
 	Medium   string `xml:"medium,attr"`
+	Credit   string `xml:"http://search.yahoo.com/mrss/ credit"`
+	Text     string `xml:"http://search.yahoo.com/mrss/ text"`
 }
 
 // MimeType returns the attachment mime type.
