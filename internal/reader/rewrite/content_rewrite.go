@@ -63,6 +63,9 @@ var knownRules = map[string]ruleSpec{
 	"add_youtube_video_from_id": {apply: func(_ string, entry *model.Entry, _ []string) {
 		entry.Content = addYoutubeVideoFromId(entry.Content)
 	}},
+	"expand_tweet_embeds": {apply: func(_ string, entry *model.Entry, _ []string) {
+		entry.Content = expandTweetEmbeds(entry.Content)
+	}},
 	"add_pdf_download_link": {apply: func(entryURL string, entry *model.Entry, _ []string) {
 		entry.Content = addPDFLink(entryURL, entry.Content)
 	}},
